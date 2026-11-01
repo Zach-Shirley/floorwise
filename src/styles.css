@@ -523,6 +523,26 @@ button:disabled {
   font-variant-numeric: tabular-nums;
 }
 
+.stair line {
+  stroke: rgba(236, 230, 233, 0.35);
+  stroke-width: 1;
+  pointer-events: none;
+}
+.stair .stair-run {
+  stroke: rgba(236, 230, 233, 0.7);
+  stroke-width: 1.2;
+  fill: none;
+}
+.arrow-head {
+  fill: rgba(236, 230, 233, 0.8);
+}
+.stair-tag {
+  fill: var(--muted);
+  font-weight: 700;
+  text-anchor: middle;
+  pointer-events: none;
+}
+
 /* symbols (shared by fixtures, furniture, palette minis) */
 .sym > *,
 .sym rect,
@@ -1317,6 +1337,21 @@ button:disabled {
   .t-meta {
     display: none;
   }
+  .top {
+    gap: 8px;
+    padding: 0 10px;
+  }
+  .title {
+    flex: 1;
+    min-width: 0;
+  }
+  .t-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .spacer {
+    display: none;
+  }
   .left,
   .right {
     position: fixed;
@@ -1348,9 +1383,25 @@ button:disabled {
   .stage {
     margin: 6px;
   }
+  .seg button {
+    padding: 5px 9px;
+  }
   .zoom-val,
   .tools .icon-btn[aria-label='Undo'],
   .tools .icon-btn[aria-label='Redo'] {
     display: none;
+  }
+}
+
+@media (max-width: 560px) {
+  .zoom {
+    display: none;
+  }
+  .seg {
+    position: absolute;
+    top: 70px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 6;
   }
 }

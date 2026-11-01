@@ -82,10 +82,11 @@ export const PlanView = forwardRef<PlanHandle, Props>(function PlanView(p, ref) 
   const extent = useMemo(() => rectsBBox(L.floors.flatMap((f) => f.rooms.flatMap((r) => r.rects))), [L]);
 
   const fitView = useCallback(() => {
-    const pad = 4;
     const [x, y, w, h] = extent;
-    const s = Math.min(size.w / (w + pad * 2), size.h / (h + pad * 2));
-    setVp({ s, tx: size.w / 2 - (x + w / 2) * s, ty: size.h / 2 - (y + h / 2) * s });
+    const padX = 150,
+      padY = 150; // screen px kept clear for the dimension strings, HUD and footer
+    const s = Math.min((size.w - padX) / w, (size.h - padY) / h);
+    setVp({ s, tx: size.w / 2 - (x + w / 2) * s + 6, ty: size.h / 2 - (y + h / 2) * s - 6 });
   }, [extent, size]);
 
   useLayoutEffect(() => {
@@ -96,19 +97,22 @@ export const PlanView = forwardRef<PlanHandle, Props>(function PlanView(p, ref) 
     return () => ro.disconnect();
   }, []);
 
-  // refit when the layout changes or the canvas first gets its size
+  // Fit when the layout changes, and keep fitting on resize until the user pans or zooms.
+  const touched = useRef(false);
   const fittedFor = useRef('');
   useEffect(() => {
-    const key = `${L.def.id}`;
-    if (size.w > 50 && fittedFor.current !== key) {
-      fittedFor.current = key;
-      fitView();
+    if (size.w < 50) return;
+    if (fittedFor.current !== L.def.id) {
+      fittedFor.current = L.def.id;
+      touched.current = false;
     }
+    if (!touched.current) fitView();
   }, [L, size, fitView]);
 
   useEffect(() => p.onScale(vp.s), [vp.s]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const zoomAt = useCallback((f: number, sx: number, sy: number) => {
+    touched.current = true;
     setVp((v) => {
       const s = Math.min(160, Math.max(4, v.s * f));
       const k = s / v.s;
@@ -120,7 +124,10 @@ export const PlanView = forwardRef<PlanHandle, Props>(function PlanView(p, ref) 
     ref,
     () => ({
       zoomBy: (f) => zoomAt(f, size.w / 2, size.h / 2),
-      fit: fitView,
+      fit: () => {
+        touched.current = false;
+        fitView();
+      },
       center: () => ({ x: (size.w / 2 - vp.tx) / vp.s, y: (size.h / 2 - vp.ty) / vp.s }),
     }),
     [zoomAt, fitView, size, vp],
@@ -175,6 +182,7 @@ export const PlanView = forwardRef<PlanHandle, Props>(function PlanView(p, ref) 
     if (!d) return;
     if (Math.hypot(e.clientX - d.sx, e.clientY - d.sy) > 3) d.moved = true;
     if (d.mode === 'pan') {
+      if (d.moved) touched.current = true;
       if (d.moved) setVp((v) => ({ ...v, tx: d.tx + e.clientX - d.sx, ty: d.ty + e.clientY - d.sy }));
     } else if (d.mode === 'item' && d.moved) {
       const it = items.find((i) => i.uid === d.target);
@@ -259,6 +267,9 @@ export const PlanView = forwardRef<PlanHandle, Props>(function PlanView(p, ref) 
             <rect width={5} height={5} fill="url(#grid1)" />
             <path d="M5 0H0V5" className="grid-major" fill="none" strokeWidth={px(1)} />
           </pattern>
+          <marker id="arrow" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse" markerUnits="strokeWidth">
+            <path d="M0 0L10 5L0 10z" className="arrow-head" />
+          </marker>
           <pattern id="hatch" width={0.5} height={0.5} patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
             <line x1={0} y1={0} x2={0} y2={0.5} className="hatch" strokeWidth={px(1)} />
           </pattern>
@@ -286,6 +297,38 @@ export const PlanView = forwardRef<PlanHandle, Props>(function PlanView(p, ref) 
                 })}
             </g>
           ))}
+
+          {/* stairs: treads every 10", arrow toward the top of the run */}
+          {floor.rooms
+            .filter((r) => r.type === 'stair')
+            .map((r) => {
+              const [x, y, w, h] = r.bbox;
+              const vertical = h >= w;
+              const len = vertical ? h : w;
+              const n = Math.max(2, Math.floor(len / (10 / 12)));
+              const fi = L.floors.indexOf(floor);
+              const up = !(fi > 0 && L.floors[fi - 1].rooms.some((q) => q.type === 'stair'));
+              return (
+                <g key={`st-${r.id}`} className="stair">
+                  {Array.from({ length: n - 1 }, (_, i) => {
+                    const t = ((i + 1) * len) / n;
+                    return vertical ? (
+                      <line key={i} x1={x + 0.15} y1={y + t} x2={x + w - 0.15} y2={y + t} {...NS} />
+                    ) : (
+                      <line key={i} x1={x + t} y1={y + 0.15} x2={x + t} y2={y + h - 0.15} {...NS} />
+                    );
+                  })}
+                  {vertical ? (
+                    <polyline points={`${x + w / 2},${y + h - 0.6} ${x + w / 2},${y + 0.6}`} className="stair-run" markerEnd="url(#arrow)" {...NS} />
+                  ) : (
+                    <polyline points={`${x + 0.6},${y + h / 2} ${x + w - 0.6},${y + h / 2}`} className="stair-run" markerEnd="url(#arrow)" {...NS} />
+                  )}
+                  <text x={x + w / 2} y={y + h / 2} fontSize={px(10)} className="stair-tag" transform={vertical ? `rotate(-90 ${x + w / 2} ${y + h / 2})` : undefined} dy={px(-6)}>
+                    {up ? 'UP' : 'DN'}
+                  </text>
+                </g>
+              );
+            })}
 
           {/* open edges between rooms */}
           {floor.doors

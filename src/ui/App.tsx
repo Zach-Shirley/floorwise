@@ -78,6 +78,14 @@ export function App() {
     }
   }, [prefs, P.layoutId]);
 
+  // ?furnish=1 fills an empty layout with starter furniture (used for demos)
+  const wantFurnish = useRef(new URLSearchParams(location.search).get('furnish') === '1');
+  useEffect(() => {
+    if (!wantFurnish.current) return;
+    wantFurnish.current = false;
+    if (!P.items.length) furnishAll();
+  }); // eslint-disable-line react-hooks/exhaustive-deps
+
   useEffect(() => {
     const url = new URL(location.href);
     url.searchParams.set('layout', P.layoutId);
@@ -86,10 +94,6 @@ export function App() {
     history.replaceState(null, '', url);
   }, [P.layoutId]);
 
-  // ?furnish=1 fills an empty layout with starter furniture (used for demos)
-  useEffect(() => {
-    if (new URLSearchParams(location.search).get('furnish') === '1' && !P.items.length) furnishAll();
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (!toast) return;
