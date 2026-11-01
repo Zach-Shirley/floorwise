@@ -2,7 +2,7 @@
 
 A house-plan explorer for people who've never designed a house. Browse 19 original floor plans from a 450 sq ft studio to a 3,200 sq ft two-story. Drop true-size furniture into them and see right away when a king bed blocks the closet door. Along the way you learn *why* each plan is arranged the way it is.
 
-**Live:** _deploying, link coming_
+**Live:** https://floorwise-seven.vercel.app (auto-deploys from `main`)
 
 **Status:** First working version (v0.1, October 2026). The plan viewer, layout library, furniture placement with fit checks, and the learning notes all work. Plans are fixed-size for now: you can't drag walls yet. Desktop browser is the target; phones can browse plans but aren't polished.
 
