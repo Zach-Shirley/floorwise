@@ -1,0 +1,97 @@
+import type { LayoutDef } from '../../engine/types';
+
+const layout: LayoutDef = {
+  id: 'two-bed-bungalow',
+  name: 'Two-Bed Bungalow',
+  kind: 'house',
+  styles: ['traditional', 'cottage'],
+  beds: 2,
+  baths: 1,
+  summary: 'A compact house with a front porch. Living, dining and kitchen run front to back on one side, and the bedrooms sit off a short hall on the other.',
+  notes: [
+    {
+      title: 'Public side, private side',
+      body: 'The west half is for company: porch, living room, dining, kitchen. The east half holds the bedrooms and bath. A guest never has to pass a bedroom door to reach the table.',
+      rooms: ['living', 'dining', 'kitchen', 'bed1', 'bed2'],
+    },
+    {
+      title: 'A tiny hall does a big job',
+      body: 'One short hall off the dining room serves both bedrooms, the bath and a linen closet. Very little floor area is spent on corridor. That matters in a house this size.',
+      rooms: ['hall'],
+    },
+    {
+      title: 'One wet wall',
+      body: 'The kitchen, laundry and bathroom all touch the same few feet of wall. One plumbing run serves all three, which is cheaper to build and easier to repair.',
+      rooms: ['kitchen', 'laundry', 'bath'],
+    },
+    {
+      title: 'Back door into the work zone',
+      body: 'Groceries and muddy boots come in the back door straight into the kitchen, with the laundry right beside it. The front door and living room stay tidy.',
+      rooms: ['kitchen', 'laundry'],
+    },
+    {
+      title: 'Closets as sound buffers',
+      body: 'Closets sit between the bedrooms and the busier rooms next to them. Clothes on a rod soak up sound better than a bare wall.',
+      rooms: ['closet1', 'closet2', 'linen'],
+    },
+  ],
+  floors: [
+    {
+      id: 'main',
+      name: 'Main floor',
+      rooms: [
+        { id: 'kitchen', name: 'Kitchen', type: 'kitchen', rect: [0, 0, 11, 10] },
+        { id: 'laundry', name: 'Laundry', type: 'laundry', rect: [11, 0, 5, 10] },
+        { id: 'dining', name: 'Dining', type: 'dining', rect: [0, 10, 16, 10] },
+        { id: 'living', name: 'Living', type: 'living', rect: [0, 20, 16, 12], note: 'The front door opens straight in, bungalow style. Float the sofa to make a little entry zone.' },
+        { id: 'porch', name: 'Front porch', type: 'porch', rect: [0, 32, 14, 6] },
+        { id: 'closet2', name: 'Closet', type: 'closet', rect: [16, 0, 6, 4.5] },
+        { id: 'bath', name: 'Bath', type: 'bath', rect: [16, 4.5, 6, 8.5] },
+        { id: 'bed2', name: 'Bedroom 2', type: 'bedroom', rect: [22, 0, 10, 13] },
+        { id: 'hall', name: 'Hall', type: 'hall', rect: [16, 13, 12, 3.5] },
+        { id: 'linen', name: 'Linen', type: 'closet', rect: [28, 13, 4, 3.5] },
+        { id: 'bed1', name: 'Bedroom 1', type: 'bedroom', rects: [[16, 16.5, 12.5, 15.5], [28.5, 24.5, 3.5, 7.5]], note: 'The larger bedroom gets two exterior walls, which gives cross-breeze and light from two directions.' },
+        { id: 'closet1', name: 'Closet', type: 'closet', rect: [28.5, 16.5, 3.5, 8] },
+      ],
+      doors: [
+        { between: ['living', 'outside'], side: 'S', at: 6, main: true },
+        { between: ['kitchen', 'outside'], side: 'N', at: 7.5 },
+        { between: ['dining', 'living'], kind: 'open', width: 8, at: 4 },
+        { between: ['kitchen', 'dining'], kind: 'open', width: 5, at: 3 },
+        { between: ['kitchen', 'laundry'], at: 'end', swing: 'laundry' },
+        { between: ['dining', 'hall'], kind: 'open' },
+        { between: ['hall', 'bath'], width: 2.5, at: 'end', hinge: 'end' },
+        { between: ['hall', 'bed2'], at: 0.5 },
+        { between: ['hall', 'bed1'], at: 1 },
+        { between: ['hall', 'linen'], width: 2 },
+        { between: ['bed2', 'closet2'], kind: 'bifold', width: 3.5 },
+        { between: ['bed1', 'closet1'], kind: 'bifold', width: 5 },
+      ],
+      windows: [
+        { room: 'kitchen', side: 'W', width: 3, at: 5 },
+        { room: 'dining', side: 'W', width: 4 },
+        { room: 'living', side: 'W', width: 4 },
+        { room: 'living', side: 'S', width: 4, at: 10 },
+        { room: 'bed2', side: 'N', width: 4 },
+        { room: 'bed2', side: 'E', width: 3 },
+        { room: 'bed1', side: 'S', width: 4, at: 4 },
+        { room: 'bed1', side: 'E', width: 3 },
+      ],
+      fixtures: [
+        { item: 'fridge-30', room: 'kitchen', wall: 'N', at: 0 },
+        { item: 'counter', room: 'kitchen', wall: 'N', at: 2.5, w: 24 },
+        { item: 'range-30', room: 'kitchen', wall: 'N', at: 4.5 },
+        { item: 'counter', room: 'kitchen', wall: 'W', at: 2.6, w: 24 },
+        { item: 'sink-kitchen', room: 'kitchen', wall: 'W', at: 4.6 },
+        { item: 'dishwasher', room: 'kitchen', wall: 'W', at: 7.6 },
+        { item: 'washer', room: 'laundry', wall: 'N', at: 0 },
+        { item: 'dryer', room: 'laundry', wall: 'N', at: 2.25 },
+        { item: 'tub', room: 'bath', wall: 'N', at: 0 },
+        { item: 'vanity-30', room: 'bath', wall: 'W', at: 3 },
+        { item: 'toilet', room: 'bath', wall: 'W', at: 5.6 },
+      ],
+    },
+  ],
+};
+
+export default layout;

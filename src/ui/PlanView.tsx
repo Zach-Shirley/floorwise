@@ -1,0 +1,549 @@
+import { forwardRef, useCallback, useEffect, useImperativeHandle, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { getFurniture } from '../data/furniture';
+import { ftIn, sqft } from '../engine/format';
+import { clearanceZones, itemBox, snapToWalls, wallRect, type FitWarning, type PlacedItem } from '../engine/furniture';
+import { bbox as rectsBBox, type Pt } from '../engine/geometry';
+import { WALL_EXT, WALL_HALF, inRoom, segPt, type RFloor, type RLayout, type RWall } from '../engine/resolve';
+import { circulationTree } from '../engine/rules';
+import type { Rect } from '../engine/types';
+import { SymbolShape } from './symbols';
+
+export interface ViewOpts {
+  dims: boolean;
+  zones: boolean;
+  flow: boolean;
+  furniture: boolean;
+  grid: boolean;
+}
+
+export type Selection =
+  | { kind: 'room'; id: string }
+  | { kind: 'item'; uid: string }
+  | { kind: 'fixture'; id: string }
+  | null;
+
+export interface PlanHandle {
+  zoomBy: (f: number) => void;
+  fit: () => void;
+  /** World point at the center of the visible canvas. */
+  center: () => Pt;
+}
+
+interface Props {
+  L: RLayout;
+  floor: RFloor;
+  items: PlacedItem[];
+  fit: Map<string, FitWarning[]>;
+  sel: Selection;
+  opts: ViewOpts;
+  highlight: string[];
+  onSelect: (s: Selection) => void;
+  onBeginEdit: () => void;
+  onMove: (uid: string, x: number, y: number) => void;
+  onRotate: (uid: string, rot: number) => void;
+  onDropItem: (item: string, x: number, y: number) => void;
+  onScale: (s: number) => void;
+}
+
+const NS = { vectorEffect: 'non-scaling-stroke' as const };
+const pts = (p: Pt[]) => p.map((q) => `${q.x},${q.y}`).join(' ');
+
+/** Extend wall ends so corners close cleanly. */
+function wallDrawRect(w: RWall, floor: RFloor): Rect {
+  const r = wallRect(w);
+  const { seg } = w;
+  const ext = (end: 'start' | 'end') => {
+    if (end === 'start' ? !w.capStart : !w.capEnd) return 0;
+    if (w.kind === 'int') return WALL_HALF;
+    const t = end === 'start' ? -1 : 1;
+    const at = end === 'start' ? seg.a0 : seg.a1;
+    const inward = -(w.out ?? 1);
+    const probe = segPt(seg, at + t * 0.05, inward * 0.05);
+    const concave = floor.rooms.some((rm) => !rm.outdoor && inRoom(probe, rm, 0));
+    return concave ? WALL_HALF : WALL_EXT - WALL_HALF;
+  };
+  const e0 = ext('start'),
+    e1 = ext('end');
+  return seg.o === 'h' ? [r[0] - e0, r[1], r[2] + e0 + e1, r[3]] : [r[0], r[1] - e0, r[2], r[3] + e0 + e1];
+}
+
+export const PlanView = forwardRef<PlanHandle, Props>(function PlanView(p, ref) {
+  const { L, floor, items, fit, sel, opts, highlight } = p;
+  const wrap = useRef<HTMLDivElement>(null);
+  const [size, setSize] = useState({ w: 800, h: 600 });
+  const [vp, setVp] = useState({ s: 20, tx: 0, ty: 0 });
+  const [hoverRoom, setHoverRoom] = useState<string | null>(null);
+  const [cursor, setCursor] = useState<Pt | null>(null);
+  const drag = useRef<
+    | null
+    | { mode: 'pan' | 'item' | 'rotate'; sx: number; sy: number; moved: boolean; target?: string; ox?: number; oy?: number; tx: number; ty: number }
+  >(null);
+
+  const extent = useMemo(() => rectsBBox(L.floors.flatMap((f) => f.rooms.flatMap((r) => r.rects))), [L]);
+
+  const fitView = useCallback(() => {
+    const pad = 4;
+    const [x, y, w, h] = extent;
+    const s = Math.min(size.w / (w + pad * 2), size.h / (h + pad * 2));
+    setVp({ s, tx: size.w / 2 - (x + w / 2) * s, ty: size.h / 2 - (y + h / 2) * s });
+  }, [extent, size]);
+
+  useLayoutEffect(() => {
+    const el = wrap.current!;
+    const ro = new ResizeObserver(() => setSize({ w: el.clientWidth, h: el.clientHeight }));
+    ro.observe(el);
+    setSize({ w: el.clientWidth, h: el.clientHeight });
+    return () => ro.disconnect();
+  }, []);
+
+  // refit when the layout changes or the canvas first gets its size
+  const fittedFor = useRef('');
+  useEffect(() => {
+    const key = `${L.def.id}`;
+    if (size.w > 50 && fittedFor.current !== key) {
+      fittedFor.current = key;
+      fitView();
+    }
+  }, [L, size, fitView]);
+
+  useEffect(() => p.onScale(vp.s), [vp.s]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const zoomAt = useCallback((f: number, sx: number, sy: number) => {
+    setVp((v) => {
+      const s = Math.min(160, Math.max(4, v.s * f));
+      const k = s / v.s;
+      return { s, tx: sx - (sx - v.tx) * k, ty: sy - (sy - v.ty) * k };
+    });
+  }, []);
+
+  useImperativeHandle(
+    ref,
+    () => ({
+      zoomBy: (f) => zoomAt(f, size.w / 2, size.h / 2),
+      fit: fitView,
+      center: () => ({ x: (size.w / 2 - vp.tx) / vp.s, y: (size.h / 2 - vp.ty) / vp.s }),
+    }),
+    [zoomAt, fitView, size, vp],
+  );
+
+  useEffect(() => {
+    const el = wrap.current!;
+    const onWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      const r = el.getBoundingClientRect();
+      zoomAt(Math.exp(-e.deltaY * 0.0015), e.clientX - r.left, e.clientY - r.top);
+    };
+    el.addEventListener('wheel', onWheel, { passive: false });
+    return () => el.removeEventListener('wheel', onWheel);
+  }, [zoomAt]);
+
+  const toWorld = (clientX: number, clientY: number): Pt => {
+    const r = wrap.current!.getBoundingClientRect();
+    return { x: (clientX - r.left - vp.tx) / vp.s, y: (clientY - r.top - vp.ty) / vp.s };
+  };
+
+  const onPointerDown = (e: React.PointerEvent) => {
+    if (e.button !== 0 && e.button !== 1) return;
+    const t = e.target as Element;
+    const itemEl = t.closest('[data-item]');
+    const rotEl = t.closest('[data-rot]');
+    const base = { sx: e.clientX, sy: e.clientY, moved: false, tx: vp.tx, ty: vp.ty };
+    (e.currentTarget as Element).setPointerCapture(e.pointerId);
+    if (e.button === 0 && rotEl) {
+      p.onBeginEdit();
+      drag.current = { ...base, mode: 'rotate', target: rotEl.getAttribute('data-rot')! };
+      return;
+    }
+    if (e.button === 0 && itemEl && opts.furniture) {
+      const uid = itemEl.getAttribute('data-item')!;
+      const it = items.find((i) => i.uid === uid)!;
+      const w = toWorld(e.clientX, e.clientY);
+      p.onSelect({ kind: 'item', uid });
+      p.onBeginEdit();
+      drag.current = { ...base, mode: 'item', target: uid, ox: w.x - it.x, oy: w.y - it.y };
+      return;
+    }
+    const fx = t.closest('[data-fixture]')?.getAttribute('data-fixture');
+    const room = t.closest('[data-room]')?.getAttribute('data-room');
+    drag.current = { ...base, mode: 'pan', target: fx ? `fx:${fx}` : room ? `room:${room}` : undefined };
+  };
+
+  const onPointerMove = (e: React.PointerEvent) => {
+    const w = toWorld(e.clientX, e.clientY);
+    setCursor(w);
+    const d = drag.current;
+    if (!d) return;
+    if (Math.hypot(e.clientX - d.sx, e.clientY - d.sy) > 3) d.moved = true;
+    if (d.mode === 'pan') {
+      if (d.moved) setVp((v) => ({ ...v, tx: d.tx + e.clientX - d.sx, ty: d.ty + e.clientY - d.sy }));
+    } else if (d.mode === 'item' && d.moved) {
+      const it = items.find((i) => i.uid === d.target);
+      const def = it && getFurniture(it.item);
+      if (!it || !def) return;
+      const inch = 1 / 12;
+      let x = Math.round((w.x - d.ox!) / inch) * inch;
+      let y = Math.round((w.y - d.oy!) / inch) * inch;
+      if (!e.altKey) ({ x, y } = snapToWalls(floor, itemBox({ ...it, x, y }, def)));
+      p.onMove(it.uid, x, y);
+    } else if (d.mode === 'rotate') {
+      const it = items.find((i) => i.uid === d.target);
+      if (!it) return;
+      let a = (Math.atan2(w.y - it.y, w.x - it.x) * 180) / Math.PI + 90;
+      a = e.shiftKey ? Math.round(a) : Math.round(a / 15) * 15;
+      p.onRotate(it.uid, ((a % 360) + 360) % 360);
+    }
+  };
+
+  const onPointerUp = () => {
+    const d = drag.current;
+    drag.current = null;
+    if (!d || d.moved || d.mode !== 'pan') return;
+    if (d.target?.startsWith('fx:')) p.onSelect({ kind: 'fixture', id: d.target.slice(3) });
+    else if (d.target?.startsWith('room:')) p.onSelect({ kind: 'room', id: d.target.slice(5) });
+    else p.onSelect(null);
+  };
+
+  const k = 1 / vp.s; // world units per screen pixel
+  const px = (n: number) => n * k;
+  const tree = useMemo(() => (opts.flow ? circulationTree(L) : null), [L, opts.flow]);
+  const hl = new Set([...highlight, ...(hoverRoom ? [hoverRoom] : [])]);
+  const selRoom = sel?.kind === 'room' ? sel.id : null;
+  const [ex, ey, ew, eh] = extent;
+
+  // circulation polylines: room center -> door -> room center
+  const flowLines: Pt[][] = [];
+  if (tree) {
+    const center = (fid: string, rid: string) => L.floors.find((f) => f.id === fid)?.roomById.get(rid)?.labelAt;
+    for (const [child, parent] of tree) {
+      if (!parent) continue;
+      const [cf, cr] = child.split('/'),
+        [pf, pr] = parent.split('/');
+      if (cf !== floor.id || pf !== floor.id) continue;
+      const door = floor.doors.find((d) => (d.a === cr && d.b === pr) || (d.a === pr && d.b === cr));
+      const a = center(pf, pr),
+        b = center(cf, cr);
+      if (!a || !b) continue;
+      const mid = door ? segPt(door.seg, (door.seg.a0 + door.seg.a1) / 2) : null;
+      flowLines.push(mid ? [a, mid, b] : [a, b]);
+    }
+  }
+  const mainDoor = floor.doors.find((d) => d.main);
+
+  return (
+    <div
+      ref={wrap}
+      className="plan"
+      onDragOver={(e) => e.preventDefault()}
+      onDrop={(e) => {
+        e.preventDefault();
+        const id = e.dataTransfer.getData('text/floorwise-item');
+        if (!id) return;
+        const w = toWorld(e.clientX, e.clientY);
+        p.onDropItem(id, w.x, w.y);
+      }}
+    >
+      <svg
+        width={size.w}
+        height={size.h}
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={onPointerUp}
+        onPointerLeave={() => setCursor(null)}
+        className={drag.current?.mode === 'pan' && drag.current.moved ? 'panning' : ''}
+      >
+        <defs>
+          <pattern id="grid1" width={1} height={1} patternUnits="userSpaceOnUse">
+            <path d="M1 0H0V1" className="grid-minor" fill="none" strokeWidth={px(1)} />
+          </pattern>
+          <pattern id="grid5" width={5} height={5} patternUnits="userSpaceOnUse">
+            <rect width={5} height={5} fill="url(#grid1)" />
+            <path d="M5 0H0V5" className="grid-major" fill="none" strokeWidth={px(1)} />
+          </pattern>
+          <pattern id="hatch" width={0.5} height={0.5} patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+            <line x1={0} y1={0} x2={0} y2={0.5} className="hatch" strokeWidth={px(1)} />
+          </pattern>
+        </defs>
+        <g transform={`translate(${vp.tx} ${vp.ty}) scale(${vp.s})`}>
+          {opts.grid && vp.s > 6 && <rect x={ex - 60} y={ey - 60} width={ew + 120} height={eh + 120} fill="url(#grid5)" />}
+
+          {/* room fills */}
+          {floor.rooms.map((r) => (
+            <g
+              key={r.id}
+              data-room={r.id}
+              className={`room t-${r.type} z-${r.zone} ${opts.zones ? 'zoned' : ''} ${r.outdoor ? 'outdoor' : ''} ${hl.has(r.id) ? 'hl' : ''} ${selRoom === r.id ? 'sel' : ''}`}
+              onPointerEnter={() => setHoverRoom(r.id)}
+              onPointerLeave={() => setHoverRoom((h) => (h === r.id ? null : h))}
+            >
+              {r.rects.map((q, i) => (
+                <rect key={i} x={q[0]} y={q[1]} width={q[2]} height={q[3]} />
+              ))}
+              {r.outdoor &&
+                r.boundary.map((s, i) => {
+                  const a = segPt(s, s.a0),
+                    b = segPt(s, s.a1);
+                  return <line key={`b${i}`} x1={a.x} y1={a.y} x2={b.x} y2={b.y} className="outdoor-edge" {...NS} />;
+                })}
+            </g>
+          ))}
+
+          {/* open edges between rooms */}
+          {floor.doors
+            .filter((d) => d.full)
+            .map((d) => {
+              const a = segPt(d.seg, d.seg.a0),
+                b = segPt(d.seg, d.seg.a1);
+              return <line key={d.id} x1={a.x} y1={a.y} x2={b.x} y2={b.y} className="open-edge" {...NS} />;
+            })}
+
+          {/* fixtures */}
+          {floor.fixtures.map((f) => (
+            <g
+              key={f.id}
+              data-fixture={f.id}
+              className={`fixture ${sel?.kind === 'fixture' && sel.id === f.id ? 'sel' : ''}`}
+              transform={`translate(${f.cx} ${f.cy}) rotate(${f.rot})`}
+            >
+              <SymbolShape symbol={f.def.symbol} w={f.w} d={f.d} round={f.def.round} />
+            </g>
+          ))}
+
+          {/* walls */}
+          <g className="walls">
+            {floor.walls.map((w, i) => {
+              const r = wallDrawRect(w, floor);
+              return <rect key={i} x={r[0]} y={r[1]} width={r[2]} height={r[3]} className={`wall ${w.kind}`} />;
+            })}
+          </g>
+
+          {/* windows */}
+          {floor.windows.map((w, i) => {
+            const t0 = w.out === 1 ? -WALL_HALF : -(WALL_EXT - WALL_HALF);
+            const t1 = t0 + WALL_EXT;
+            const r: Rect =
+              w.seg.o === 'h'
+                ? [w.seg.a0, w.seg.c + t0, w.seg.a1 - w.seg.a0, WALL_EXT]
+                : [w.seg.c + t0, w.seg.a0, WALL_EXT, w.seg.a1 - w.seg.a0];
+            const mid = (t0 + t1) / 2;
+            const l1a = segPt(w.seg, w.seg.a0, mid - 0.06),
+              l1b = segPt(w.seg, w.seg.a1, mid - 0.06);
+            const l2a = segPt(w.seg, w.seg.a0, mid + 0.06),
+              l2b = segPt(w.seg, w.seg.a1, mid + 0.06);
+            return (
+              <g key={i} className="window">
+                <rect x={r[0]} y={r[1]} width={r[2]} height={r[3]} />
+                <line x1={l1a.x} y1={l1a.y} x2={l1b.x} y2={l1b.y} {...NS} />
+                <line x1={l2a.x} y1={l2a.y} x2={l2b.x} y2={l2b.y} {...NS} />
+              </g>
+            );
+          })}
+
+          {/* doors */}
+          {floor.doors
+            .filter((d) => !d.full)
+            .map((d) => {
+              const { seg } = d;
+              const a = segPt(seg, seg.a0),
+                b = segPt(seg, seg.a1);
+              const n = d.dir;
+              const jamb = (q: Pt) => {
+                const u = segPt({ ...seg, c: seg.c }, seg.o === 'h' ? q.x : q.y, -WALL_HALF);
+                const v = segPt({ ...seg, c: seg.c }, seg.o === 'h' ? q.x : q.y, WALL_HALF);
+                return <line x1={u.x} y1={u.y} x2={v.x} y2={v.y} className="jamb" {...NS} />;
+              };
+              let body: React.ReactNode = null;
+              if (d.kind === 'swing' || d.kind === 'double') {
+                body = d.swingPolys.map((poly, i) => {
+                  const h = poly[0],
+                    end = poly[poly.length - 1];
+                  return (
+                    <g key={i}>
+                      <polyline points={pts(poly.slice(1))} className="door-arc" {...NS} />
+                      <line x1={h.x} y1={h.y} x2={end.x} y2={end.y} className="door-leaf" {...NS} />
+                    </g>
+                  );
+                });
+              } else if (d.kind === 'bifold') {
+                const q = d.width / 4;
+                const z = [0, 0.25, 0.5, 0.75, 1].map((t, i) => segPt(seg, seg.a0 + (seg.a1 - seg.a0) * t, i % 2 ? n * q * 0.8 : 0));
+                body = <polyline points={pts(z)} className="door-leaf" {...NS} />;
+              } else if (d.kind === 'slide') {
+                const w = seg.a1 - seg.a0;
+                const p1 = segPt(seg, seg.a0, -0.07),
+                  p2 = segPt(seg, seg.a0 + w * 0.55, -0.07);
+                const p3 = segPt(seg, seg.a1 - w * 0.55, 0.07),
+                  p4 = segPt(seg, seg.a1, 0.07);
+                body = (
+                  <>
+                    <line x1={p1.x} y1={p1.y} x2={p2.x} y2={p2.y} className="door-leaf" {...NS} />
+                    <line x1={p3.x} y1={p3.y} x2={p4.x} y2={p4.y} className="door-leaf" {...NS} />
+                  </>
+                );
+              } else if (d.kind === 'pocket') {
+                const w = seg.a1 - seg.a0;
+                const p1 = segPt(seg, seg.a0 - w * 0.9),
+                  p2 = segPt(seg, seg.a0 + w * 0.15);
+                body = <line x1={p1.x} y1={p1.y} x2={p2.x} y2={p2.y} className="door-leaf pocket" {...NS} />;
+              } else if (d.kind === 'garage') {
+                body = <line x1={a.x} y1={a.y} x2={b.x} y2={b.y} className="door-garage" {...NS} />;
+              }
+              return (
+                <g key={d.id} className={`door k-${d.kind}`}>
+                  {jamb(a)}
+                  {jamb(b)}
+                  {body}
+                </g>
+              );
+            })}
+
+          {mainDoor && (
+            <g className="entry-mark">
+              {(() => {
+                const s = mainDoor.seg;
+                const out = -mainDoor.dir;
+                const c = segPt(s, (s.a0 + s.a1) / 2, out * (WALL_EXT + px(14)));
+                return (
+                  <>
+                    <circle cx={c.x} cy={c.y} r={px(9)} />
+                    <text x={c.x} y={c.y + px(3.5)} fontSize={px(10)}>
+                      IN
+                    </text>
+                  </>
+                );
+              })()}
+            </g>
+          )}
+
+          {/* circulation */}
+          {opts.flow && (
+            <g className="flow">
+              {flowLines.map((l, i) => (
+                <polyline key={i} points={pts(l)} {...NS} />
+              ))}
+            </g>
+          )}
+
+          {/* labels */}
+          <g className="labels" strokeWidth={px(3)}>
+            {floor.rooms.map((r) => {
+              const [w, h] = r.dims;
+              const charW = 0.58;
+              const rotate = h > w * 1.3 && r.name.length * 11 * charW > w * vp.s - 8;
+              const along = (rotate ? h : w) * vp.s,
+                across = (rotate ? w : h) * vp.s;
+              if (across < 16) return null;
+              let fs = Math.min(13, Math.max(10, across / 7));
+              const fitName = (along - 8) / (r.name.length * charW);
+              if (fitName < fs) fs = fitName;
+              if (fs < 8) return null;
+              const dimText = r.shaped ? sqft(r.area) : `${ftIn(w)} × ${ftIn(h)} · ${Math.round(r.area)} ft²`;
+              const showDims =
+                opts.dims &&
+                across > 44 &&
+                dimText.length * fs * 0.82 * 0.55 < along - 8 &&
+                !(opts.furniture && items.length > 0 && across < 70);
+              return (
+                <g key={r.id} transform={`translate(${r.labelAt.x} ${r.labelAt.y})${rotate ? ' rotate(-90)' : ''}`}>
+                  <text y={showDims ? px(-fs * 0.45) : px(fs * 0.35)} fontSize={px(fs)} className="lbl-name">
+                    {r.name}
+                  </text>
+                  {showDims && (
+                    <text y={px(fs * 0.95)} fontSize={px(fs * 0.82)} className="lbl-dim">
+                      {dimText}
+                    </text>
+                  )}
+                </g>
+              );
+            })}
+          </g>
+
+          {/* furniture */}
+          {opts.furniture && (
+            <g className="furniture">
+              {items.map((it) => {
+                const def = getFurniture(it.item);
+                if (!def) return null;
+                const b = itemBox(it, def);
+                const warns = fit.get(it.uid);
+                const level = warns?.some((w) => w.level === 'block') ? 'block' : warns ? 'tight' : 'ok';
+                const isSel = sel?.kind === 'item' && sel.uid === it.uid;
+                return (
+                  <g key={it.uid} className={`item lvl-${level} ${isSel ? 'sel' : ''} ${def.flat ? 'flat' : ''}`}>
+                    {isSel &&
+                      clearanceZones(b, def).map((z, i) => <polygon key={i} points={pts(z.poly)} className="clear-zone" {...NS} />)}
+                    <g data-item={it.uid} transform={`translate(${it.x} ${it.y}) rotate(${it.rot})`}>
+                      <SymbolShape symbol={def.symbol} w={b.w} d={b.d} round={def.round} />
+                      {level === 'block' && <rect x={-b.w / 2} y={-b.d / 2} width={b.w} height={b.d} fill="url(#hatch)" className="block-hatch" />}
+                    </g>
+                    {isSel && (
+                      <g transform={`translate(${it.x} ${it.y}) rotate(${it.rot})`}>
+                        <rect x={-b.w / 2 - px(3)} y={-b.d / 2 - px(3)} width={b.w + px(6)} height={b.d + px(6)} className="sel-box" {...NS} />
+                        <line x1={0} y1={-b.d / 2 - px(3)} x2={0} y2={-b.d / 2 - px(22)} className="sel-box" {...NS} />
+                        <circle data-rot={it.uid} cx={0} cy={-b.d / 2 - px(28)} r={px(7)} className="rot-handle" {...NS} />
+                        <path d={`M${-px(5)} ${b.d / 2 + px(9)} L0 ${b.d / 2 + px(14)} L${px(5)} ${b.d / 2 + px(9)}`} className="front-mark" fill="none" {...NS} />
+                      </g>
+                    )}
+                  </g>
+                );
+              })}
+            </g>
+          )}
+
+          {/* overall dimensions */}
+          {opts.dims && (
+            <g className="overall" strokeWidth={px(1)}>
+              {(() => {
+                const [x, y, w, h] = floor.bbox;
+                const off = WALL_EXT + px(26);
+                const tick = px(5);
+                return (
+                  <>
+                    <line x1={x} y1={y - off} x2={x + w} y2={y - off} {...NS} />
+                    <line x1={x} y1={y - off - tick} x2={x} y2={y - off + tick} {...NS} />
+                    <line x1={x + w} y1={y - off - tick} x2={x + w} y2={y - off + tick} {...NS} />
+                    <text x={x + w / 2} y={y - off - px(6)} fontSize={px(11)}>
+                      {ftIn(w)}
+                    </text>
+                    <line x1={x - off} y1={y} x2={x - off} y2={y + h} {...NS} />
+                    <line x1={x - off - tick} y1={y} x2={x - off + tick} y2={y} {...NS} />
+                    <line x1={x - off - tick} y1={y + h} x2={x - off + tick} y2={y + h} {...NS} />
+                    <text x={x - off - px(6)} y={y + h / 2} fontSize={px(11)} transform={`rotate(-90 ${x - off - px(6)} ${y + h / 2})`}>
+                      {ftIn(h)}
+                    </text>
+                  </>
+                );
+              })()}
+            </g>
+          )}
+        </g>
+      </svg>
+
+      <div className="plan-hud">
+        <div className="compass" title="North is up">
+          <svg viewBox="0 0 24 24" width="22" height="22">
+            <path d="M12 3l4 9h-8z" className="needle" />
+            <path d="M12 21l-4-9h8z" className="needle-s" />
+          </svg>
+          <span>N</span>
+        </div>
+        <ScaleBar s={vp.s} />
+        {cursor && (
+          <div className="coords">
+            {ftIn(Math.max(0, cursor.x - floor.bbox[0]))}, {ftIn(Math.max(0, cursor.y - floor.bbox[1]))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+});
+
+function ScaleBar({ s }: { s: number }) {
+  const choices = [1, 2, 5, 10, 20, 50];
+  const ft = choices.find((c) => c * s >= 70) ?? 50;
+  return (
+    <div className="scalebar">
+      <div className="bar" style={{ width: ft * s }} />
+      <span>{ft} ft</span>
+    </div>
+  );
+}

@@ -1,0 +1,98 @@
+import type { LayoutDef } from '../../engine/types';
+
+const layout: LayoutDef = {
+  id: 'accessible-two-bed',
+  name: 'Accessible Two-Bed',
+  kind: 'house',
+  styles: ['accessible', 'open-concept'],
+  beds: 2,
+  baths: 2,
+  summary: 'A single-level home designed so a wheelchair user can live in it comfortably: 3\' doors, a 5\' hall, roll-in showers and an open kitchen with room to turn.',
+  notes: [
+    {
+      title: 'Universal design in one sentence',
+      body: 'Design so the house works for everyone, including kids, aging parents, someone on crutches or a wheelchair user, without looking like a hospital. Most of it is just extra inches in the right places.',
+    },
+    {
+      title: '3\' doors and a 5\' hall',
+      body: 'Every door here is 36" wide, which leaves about 32" clear when open, enough for a wheelchair. The hall is 5\' wide, so two people can pass and a chair can turn into any doorway without a three-point turn.',
+      rooms: ['hall'],
+    },
+    {
+      title: 'Room to turn around',
+      body: 'A wheelchair needs a 5\' circle to turn around. The kitchen is an open L with no island in the way, and each bath keeps a clear patch of floor. A curbless roll-in shower floor counts toward that circle.',
+      rooms: ['kitchen', 'pbath', 'bath2'],
+    },
+    {
+      title: 'Pocket doors at the baths',
+      body: 'A swinging door eats the floor you need to maneuver, and it can trap someone who falls behind it. Pocket doors slide into the wall and solve both problems.',
+      rooms: ['pbath', 'bath2'],
+    },
+    {
+      title: 'Everything on one level, close together',
+      body: 'Bedrooms, baths, laundry and kitchen are all on the main floor, within a short roll of each other. The laundry has front-loaders and its own side door, so loads never travel far.',
+      rooms: ['laundry', 'kitchen'],
+    },
+  ],
+  floors: [
+    {
+      id: 'main',
+      name: 'Main floor',
+      rooms: [
+        { id: 'primary', name: 'Primary bedroom', type: 'primary', rects: [[0, 0, 15, 15], [0, 15, 6, 5]], note: 'Plan 3\' to 5\' of clear floor on at least one side of the bed for a transfer.' },
+        { id: 'pbath', name: 'Primary bath', type: 'bath', rect: [15, 0, 10, 10] },
+        { id: 'walkin', name: 'Walk-in', type: 'walkin', rect: [15, 10, 10, 5] },
+        { id: 'closet2', name: 'Closet', type: 'closet', rect: [25, 0, 11, 2.5] },
+        { id: 'bed2', name: 'Bedroom 2', type: 'bedroom', rect: [25, 2.5, 11, 12.5] },
+        { id: 'hall', name: 'Hall', type: 'hall', rect: [6, 15, 30, 5] },
+        { id: 'living', name: 'Living', type: 'living', rect: [0, 20, 15, 18] },
+        { id: 'kitchen', name: 'Kitchen', type: 'kitchen', rect: [15, 20, 12, 11] },
+        { id: 'dining', name: 'Dining', type: 'dining', rect: [15, 31, 12, 7] },
+        { id: 'bath2', name: 'Bath', type: 'bath', rect: [27, 20, 9, 10] },
+        { id: 'laundry', name: 'Laundry', type: 'laundry', rect: [27, 30, 9, 8] },
+      ],
+      doors: [
+        { between: ['living', 'outside'], side: 'S', at: 5, main: true },
+        { between: ['laundry', 'outside'], side: 'S', at: 1 },
+        { between: ['hall', 'living'], kind: 'open' },
+        { between: ['kitchen', 'living'], kind: 'open' },
+        { between: ['kitchen', 'dining'], kind: 'open' },
+        { between: ['living', 'dining'], kind: 'open' },
+        { between: ['hall', 'primary'], width: 3, at: 1 },
+        { between: ['primary', 'pbath'], kind: 'pocket', width: 3, at: 6 },
+        { between: ['primary', 'walkin'], width: 3 },
+        { between: ['hall', 'bed2'], width: 3, at: 1 },
+        { between: ['bed2', 'closet2'], kind: 'slide', width: 6 },
+        { between: ['hall', 'bath2'], kind: 'pocket', width: 3, at: 1 },
+        { between: ['dining', 'laundry'], width: 3, at: 1 },
+      ],
+      windows: [
+        { room: 'primary', side: 'N', width: 5 },
+        { room: 'primary', side: 'W', width: 4, at: 4 },
+        { room: 'bed2', side: 'E', width: 4 },
+        { room: 'living', side: 'W', width: 5 },
+        { room: 'living', side: 'S', width: 4, at: 10 },
+        { room: 'dining', side: 'S', width: 5 },
+        { room: 'laundry', side: 'E', width: 3 },
+      ],
+      fixtures: [
+        { item: 'shower-60', room: 'pbath', wall: 'N', at: 4.5 },
+        { item: 'toilet', room: 'pbath', wall: 'E', at: 5 },
+        { item: 'vanity-36', room: 'pbath', wall: 'S', at: 1.5 },
+        { item: 'shower-60', room: 'bath2', wall: 'S', at: 3.5 },
+        { item: 'toilet', room: 'bath2', wall: 'W', at: 5 },
+        { item: 'vanity-36', room: 'bath2', wall: 'E', at: 0.5 },
+        { item: 'fridge-36', room: 'kitchen', wall: 'N', at: 0 },
+        { item: 'counter', room: 'kitchen', wall: 'N', at: 3, w: 30 },
+        { item: 'range-30', room: 'kitchen', wall: 'N', at: 5.5 },
+        { item: 'counter', room: 'kitchen', wall: 'N', at: 8, w: 42 },
+        { item: 'sink-kitchen', room: 'kitchen', wall: 'E', at: 3.2 },
+        { item: 'dishwasher', room: 'kitchen', wall: 'E', at: 6.2 },
+        { item: 'washer', room: 'laundry', wall: 'E', at: 1 },
+        { item: 'dryer', room: 'laundry', wall: 'E', at: 3.25 },
+      ],
+    },
+  ],
+};
+
+export default layout;
