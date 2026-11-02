@@ -16,12 +16,15 @@ function bedFor(room: RRoom): string {
 }
 
 const PLAN: Partial<Record<RoomType, (r: RRoom) => string[]>> = {
-  primary: (r) => [bedFor(r), 'dresser-6', 'nightstand', 'nightstand'],
-  bedroom: (r) => [bedFor(r), 'chest-5', 'nightstand'],
+  primary: (r) => [bedFor(r), 'dresser-6', 'nightstand', 'nightstand', 'table-lamp', 'shelf-bookcase-wall'],
+  bedroom: (r) => [bedFor(r), 'chest-5', 'nightstand', 'desk-small', 'poster-24x36'],
   living: (r) => (Math.min(...r.dims) >= 13 ? ['rug-8x10', 'sofa-3', 'coffee-table', 'armchair', 'tv-console'] : ['sofa-apartment', 'coffee-table', 'tv-console']),
   family: () => ['rug-8x10', 'sectional', 'coffee-round', 'tv-console'],
   dining: (r) => [r.area >= 150 ? 'table-6' : 'table-4'],
-  office: () => ['desk', 'office-chair', 'bookshelf'],
+  office: (r) => (Math.min(...r.dims) >= 9 ? ['desk-l', 'office-chair', 'monitor-27', 'pc-mid', 'bookshelf', 'shelf-36'] : ['desk', 'office-chair', 'monitor-27', 'bookshelf']),
+  great: () => ['rug-8x10', 'sofa-3', 'coffee-table', 'armchair', 'tv-console', 'table-6'],
+  studio: () => ['drafting-table', 'drafting-stool', 'easel', 'shelving'],
+  workshop: () => ['workbench-8', 'pegboard', 'tool-chest', 'shelving', 'table-saw'],
   flex: () => ['desk-small', 'armchair'],
   entry: () => ['shoe-bench'],
   mudroom: () => ['shoe-bench'],

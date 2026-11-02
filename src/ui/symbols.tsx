@@ -13,7 +13,20 @@ function R(x: number, y: number, w: number, h: number, rx = 0, cls = '') {
   return <rect x={x} y={y} width={w} height={h} rx={rx} className={cls} {...NS} />;
 }
 
-export function SymbolShape({ symbol, w, d, round }: { symbol: SymbolKey; w: number; d: number; round?: boolean }) {
+interface SymbolProps {
+  symbol: SymbolKey;
+  w: number;
+  d: number;
+  round?: boolean;
+  /** Mirror left-to-right (left-hand L-desks and sectionals). */
+  flip?: boolean;
+}
+
+export function SymbolShape({ flip, ...p }: SymbolProps) {
+  return flip ? <g transform="scale(-1 1)">{symbolBody(p)}</g> : symbolBody(p);
+}
+
+function symbolBody({ symbol, w, d, round }: SymbolProps) {
   const x0 = -w / 2,
     y0 = -d / 2;
   const m = Math.min(w, d);
@@ -283,6 +296,249 @@ export function SymbolShape({ symbol, w, d, round }: { symbol: SymbolKey; w: num
     case 'water-heater':
       detail = <text x={0} y={0.1} className="sym-label" fontSize={0.3}>WH</text>;
       break;
+    case 'desk-l': {
+      // long wing along the back, return down the right side (mirrored by `flip`)
+      const t = Math.min(d * 0.42, 2.5);
+      const r = Math.min(w * 0.42, 2.5);
+      return (
+        <g className="sym">
+          <path d={`M${x0} ${y0} H${-x0} V${-y0} H${-x0 - r} V${y0 + t} H${x0} Z`} {...NS} />
+          {R(x0 + 0.2, y0 + 0.2, w * 0.3, t * 0.5, 0.05, 'sym-thin')}
+        </g>
+      );
+    }
+    case 'monitor':
+      return (
+        <g className="sym">
+          {R(x0, y0 + d * 0.15, w, Math.min(0.12, d * 0.3), 0.03, 'sym-solid')}
+          <ellipse cx={0} cy={y0 + d * 0.55} rx={Math.min(w * 0.18, 0.45)} ry={d * 0.3} className="sym-thin" {...NS} />
+          {w > 3.5 && <line x1={0} y1={y0 + d * 0.15} x2={0} y2={-y0} className="sym-thin" {...NS} />}
+        </g>
+      );
+    case 'pc-tower':
+      detail = (
+        <>
+          <line x1={x0} y1={-y0 - 0.12} x2={-x0} y2={-y0 - 0.12} className="sym-thin" {...NS} />
+          <circle cx={0} cy={-y0 - 0.3} r={0.05} className="sym-solid" {...NS} />
+        </>
+      );
+      break;
+    case 'laptop':
+      detail = (
+        <>
+          {R(x0, y0, w, d * 0.12, 0.02, 'sym-solid')}
+          {R(x0 + w * 0.1, y0 + d * 0.25, w * 0.8, d * 0.4, 0.02, 'sym-thin')}
+        </>
+      );
+      break;
+    case 'keyboard':
+      return (
+        <g className="sym">
+          {R(x0, y0, w * 0.72, d, 0.03)}
+          <ellipse cx={-x0 - w * 0.09} cy={0} rx={w * 0.06} ry={d * 0.35} {...NS} />
+        </g>
+      );
+    case 'lamp':
+    case 'floor-lamp':
+    case 'pendant':
+      return (
+        <g className="sym">
+          <circle cx={0} cy={0} r={m / 2} {...NS} />
+          <circle cx={0} cy={0} r={m / 6} className="sym-solid" {...NS} />
+          {symbol !== 'lamp' && <circle cx={0} cy={0} r={m / 3} className="sym-thin sym-dash" {...NS} />}
+        </g>
+      );
+    case 'ceiling-fan':
+      return (
+        <g className="sym sym-overhead">
+          <circle cx={0} cy={0} r={0.3} {...NS} />
+          {[0, 90, 180, 270].map((a) => (
+            <ellipse key={a} cx={0} cy={-w / 4 - 0.1} rx={0.28} ry={w / 4 - 0.15} transform={`rotate(${a + 20})`} {...NS} />
+          ))}
+        </g>
+      );
+    case 'shelf-wall':
+      detail = <line x1={x0} y1={y0 + d * 0.5} x2={-x0} y2={y0 + d * 0.5} className="sym-thin sym-dash" {...NS} />;
+      break;
+    case 'art':
+    case 'mirror':
+      return round ? (
+        <g className="sym">
+          <ellipse cx={0} cy={0} rx={w / 2} ry={Math.max(d / 2, 0.06)} {...NS} />
+        </g>
+      ) : (
+        <g className="sym">
+          {R(x0, y0, w, Math.max(d, 0.08), 0.01, symbol === 'art' ? 'sym-solid' : '')}
+          {symbol === 'mirror' && <line x1={x0} y1={-y0} x2={-x0} y2={-y0} className="sym-thin" {...NS} />}
+        </g>
+      );
+    case 'tv':
+      return (
+        <g className="sym">
+          {R(x0, y0, w, Math.max(d * 0.35, 0.08), 0.02, 'sym-solid')}
+          {d > 0.5 && R(-w * 0.15, y0, w * 0.3, d, 0.05, 'sym-thin')}
+        </g>
+      );
+    case 'speaker':
+      detail = <circle cx={0} cy={d * 0.1} r={m * 0.3} className="sym-thin" {...NS} />;
+      break;
+    case 'pegboard':
+      return (
+        <g className="sym">
+          {R(x0, y0, w, d, 0.01)}
+          {Array.from({ length: Math.max(2, Math.floor(w * 2)) }, (_, i) => (
+            <circle key={i} cx={x0 + ((i + 0.5) * w) / Math.max(2, Math.floor(w * 2))} cy={0} r={0.02} className="sym-solid" {...NS} />
+          ))}
+        </g>
+      );
+    case 'workbench':
+      detail = (
+        <>
+          {R(x0 + 0.1, y0 + 0.1, w - 0.2, d * 0.3, 0.02, 'sym-thin')}
+          <line x1={x0} y1={-y0 - 0.15} x2={-x0} y2={-y0 - 0.15} className="sym-thin" {...NS} />
+        </>
+      );
+      break;
+    case 'tool-chest':
+      detail = (
+        <>
+          {[0.3, 0.55, 0.8].map((f) => (
+            <line key={f} x1={x0} y1={y0 + d * f} x2={-x0} y2={y0 + d * f} className="sym-thin" {...NS} />
+          ))}
+        </>
+      );
+      break;
+    case 'loft-bed':
+      detail = (
+        <>
+          {R(x0, y0, w, 0.35, 0.08, 'sym-solid')}
+          {R(x0 + 0.25, y0 + 0.5, w - 0.5, 1.1, 0.3, 'sym-soft')}
+          <line x1={x0} y1={y0} x2={-x0} y2={-y0} className="sym-thin sym-dash" {...NS} />
+          <line x1={-x0} y1={y0} x2={x0} y2={-y0} className="sym-thin sym-dash" {...NS} />
+          {[0.2, 0.4, 0.6].map((f) => (
+            <line key={f} x1={-x0 - 0.3} y1={-y0 - d * f} x2={-x0} y2={-y0 - d * f} className="sym-thin" {...NS} />
+          ))}
+        </>
+      );
+      break;
+    case 'beanbag':
+      detail = <ellipse cx={0} cy={-d * 0.12} rx={w * 0.32} ry={d * 0.26} className="sym-soft" {...NS} />;
+      break;
+    case 'ottoman':
+      detail = round ? <circle cx={0} cy={0} r={m * 0.3} className="sym-thin" {...NS} /> : R(x0 + 0.12, y0 + 0.12, w - 0.24, d - 0.24, 0.1, 'sym-thin');
+      break;
+    case 'pool-table':
+      return (
+        <g className="sym">
+          {R(x0, y0, w, d, 0.2)}
+          {R(x0 + 0.4, y0 + 0.4, w - 0.8, d - 0.8, 0.05, 'sym-soft')}
+          {[
+            [x0 + 0.45, y0 + 0.45],
+            [0, y0 + 0.4],
+            [-x0 - 0.45, y0 + 0.45],
+            [x0 + 0.45, -y0 - 0.45],
+            [0, -y0 - 0.4],
+            [-x0 - 0.45, -y0 - 0.45],
+          ].map(([cx, cy], i) => (
+            <circle key={i} cx={cx} cy={cy} r={0.17} className="sym-solid" {...NS} />
+          ))}
+        </g>
+      );
+    case 'ping-pong':
+      detail = (
+        <>
+          <line x1={0} y1={y0} x2={0} y2={-y0} className="sym-thin" {...NS} />
+          <line x1={x0} y1={0} x2={-x0} y2={0} className="sym-thin sym-dash" {...NS} />
+        </>
+      );
+      break;
+    case 'arcade':
+      detail = (
+        <>
+          {R(x0 + 0.15, y0 + 0.15, w - 0.3, d * 0.45, 0.04, 'sym-solid')}
+          <circle cx={-w * 0.2} cy={d * 0.25} r={0.1} className="sym-thin" {...NS} />
+          <circle cx={w * 0.15} cy={d * 0.25} r={0.07} className="sym-thin" {...NS} />
+        </>
+      );
+      break;
+    case 'treadmill':
+      detail = (
+        <>
+          {R(x0, y0, w, d * 0.15, 0.08, 'sym-solid')}
+          {R(x0 + w * 0.15, y0 + d * 0.2, w * 0.7, d * 0.75, 0.05, 'sym-soft')}
+        </>
+      );
+      break;
+    case 'bike':
+      detail = (
+        <>
+          <line x1={0} y1={y0 + 0.2} x2={0} y2={-y0 - 0.2} className="sym-thin" {...NS} />
+          <ellipse cx={0} cy={y0 + d * 0.25} rx={w * 0.3} ry={0.25} className="sym-solid" {...NS} />
+          <ellipse cx={0} cy={-y0 - d * 0.25} rx={w * 0.2} ry={0.3} className="sym-soft" {...NS} />
+        </>
+      );
+      break;
+    case 'weight-bench':
+      detail = R(x0 + w * 0.15, y0 + 0.2, w * 0.7, d - 0.4, 0.15, 'sym-soft');
+      break;
+    case 'rack':
+      detail = (
+        <>
+          {[
+            [x0 + 0.1, y0 + 0.1],
+            [-x0 - 0.1, y0 + 0.1],
+            [x0 + 0.1, -y0 - 0.1],
+            [-x0 - 0.1, -y0 - 0.1],
+          ].map(([cx, cy], i) => (
+            <circle key={i} cx={cx} cy={cy} r={0.1} className="sym-solid" {...NS} />
+          ))}
+          <line x1={x0} y1={0} x2={-x0} y2={0} className="sym-thin" {...NS} />
+        </>
+      );
+      break;
+    case 'guitar':
+      return (
+        <g className="sym">
+          <ellipse cx={0} cy={0} rx={w / 2} ry={Math.max(d / 2, 0.15)} {...NS} />
+          <line x1={0} y1={0} x2={-x0} y2={0} className="sym-thin" {...NS} />
+        </g>
+      );
+    case 'drums':
+      return (
+        <g className="sym">
+          <circle cx={0} cy={y0 + d * 0.35} r={m * 0.2} {...NS} />
+          <circle cx={x0 + w * 0.2} cy={y0 + d * 0.3} r={m * 0.12} {...NS} />
+          <circle cx={-x0 - w * 0.2} cy={y0 + d * 0.3} r={m * 0.12} {...NS} />
+          <circle cx={x0 + w * 0.15} cy={-y0 - d * 0.35} r={m * 0.13} className="sym-thin" {...NS} />
+          <circle cx={-x0 - w * 0.15} cy={-y0 - d * 0.4} r={m * 0.16} className="sym-thin" {...NS} />
+          <circle cx={0} cy={-y0 - d * 0.15} r={m * 0.1} className="sym-soft" {...NS} />
+        </g>
+      );
+    case 'aquarium':
+      detail = R(x0 + 0.08, y0 + 0.08, w - 0.16, d - 0.16, 0.02, 'sym-soft');
+      break;
+    case 'led-strip':
+      return <line x1={x0} y1={0} x2={-x0} y2={0} className="sym-led" {...NS} />;
+    case 'printer':
+      detail = R(x0 + w * 0.15, y0, w * 0.7, d * 0.25, 0.02, 'sym-thin');
+      break;
+    case 'easel':
+      return (
+        <g className="sym">
+          <path d={`M${x0} ${-y0} L0 ${y0} L${-x0} ${-y0}`} fill="none" {...NS} />
+          {R(x0 + w * 0.1, y0 + d * 0.15, w * 0.8, 0.12, 0.02, 'sym-solid')}
+        </g>
+      );
+    case 'divider': {
+      const n = 3;
+      const seg = w / n;
+      const pts = Array.from({ length: n + 1 }, (_, i) => `${x0 + i * seg},${i % 2 ? -y0 * 0.6 : y0 * 0.6}`).join(' ');
+      return (
+        <g className="sym">
+          <polyline points={pts} fill="none" strokeWidth={3} {...NS} />
+        </g>
+      );
+    }
     default:
       detail = (
         <>

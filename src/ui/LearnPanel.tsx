@@ -106,6 +106,31 @@ const TOPICS: { id: string; title: string; body: React.ReactNode }[] = [
     ),
   },
   {
+    id: 'heights',
+    title: 'Heights: the third dimension',
+    body: (
+      <>
+        <p>
+          A plan is flat, but rooms aren't. Every piece here has a height, and two pieces only collide when they overlap on the plan <i>and</i> in
+          height. That is why a PC tower can go under a desk and a shelf can hang over a dresser. Select a piece to see its side view.
+        </p>
+        <ul>
+          <li><b>Desks and dining tables</b>: 29-30" high, with about 26" of knee room under them.</li>
+          <li><b>Kitchen counters</b>: 36". Bar tops: 42". Standing desks for a tall person: about 44-46".</li>
+          <li><b>Nightstands</b>: within a couple of inches of the mattress top.</li>
+          <li><b>Art and posters</b>: center about 57-60" off the floor, the height galleries use.</li>
+          <li><b>Shelves over a dresser or desk</b>: 18-24" above the top so things fit underneath.</li>
+          <li><b>Wall TVs</b>: center near seated eye level, around 42". Higher than that strains your neck.</li>
+          <li><b>Ceiling fans</b>: blades at least 7' up. Most ceilings are 8'.</li>
+        </ul>
+        <p>
+          On the plan, pieces above about 4' (wall shelves, wall TVs, fans) are drawn dashed. That is a real drafting convention: the plan is a
+          slice through the house about 4' up, and anything above the slice is shown dashed.
+        </p>
+      </>
+    ),
+  },
+  {
     id: 'mistakes',
     title: 'Common beginner mistakes',
     body: (

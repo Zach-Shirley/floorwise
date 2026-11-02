@@ -1,12 +1,13 @@
 import { useMemo } from 'react';
 import { getFurniture } from '../data/furniture';
 import { bathsLabel, bedsLabel, ftIn, sqft } from '../engine/format';
-import type { FitWarning, PlacedItem } from '../engine/furniture';
+import { CEILING, type FitWarning, type PlacedItem, type Stack } from '../engine/furniture';
 import { inRoom, type RFloor, type RLayout, type RRoom } from '../engine/resolve';
 import { kitchenTriangle, runChecks } from '../engine/rules';
 import type { RoomType, Zone } from '../engine/types';
 import { styleLabel } from './LayoutLibrary';
 import type { Selection } from './PlanView';
+import { SideView } from './SideView';
 
 const TYPE_LABEL: Record<RoomType, string> = {
   living: 'Living room',
@@ -31,6 +32,10 @@ const TYPE_LABEL: Record<RoomType, string> = {
   porch: 'Porch',
   deck: 'Deck / patio',
   flex: 'Flex room',
+  great: 'Great room',
+  workshop: 'Workshop',
+  studio: 'Studio',
+  'open-below': 'Open to below',
 };
 
 export const ZONE_INFO: Record<Zone, { label: string; text: string }> = {
@@ -49,6 +54,11 @@ interface Props {
   sel: Selection;
   items: PlacedItem[];
   fit: Map<string, FitWarning[]>;
+  stacks: Map<string, Stack>;
+  /** Your height in inches (side view figure). */
+  person: number;
+  onPerson: (inches: number) => void;
+  onElev: (uid: string, inches: number) => void;
   onSelect: (s: Selection) => void;
   onHighlight: (rooms: string[]) => void;
   onRotate: (uid: string, delta: number) => void;
@@ -254,10 +264,13 @@ function RoomPanel({ L, floor, room, items, onSelect }: Props & { room: RRoom })
   );
 }
 
-function ItemPanel({ it, fit, onRotate, onRemove, onDuplicate, onSelect, floor }: Props & { it: PlacedItem }) {
+function ItemPanel({ it, fit, stacks, items, person, onPerson, onElev, onRotate, onRemove, onDuplicate, onSelect, floor }: Props & { it: PlacedItem }) {
   const def = getFurniture(it.item)!;
   const warns = fit.get(it.uid) ?? [];
   const room = floor.rooms.find((r) => inRoom({ x: it.x, y: it.y }, r, 0));
+  const st = stacks.get(it.uid);
+  const mount = def.mount ?? 'floor';
+  const elev = st?.elev ?? 0;
   return (
     <div className="insp">
       <Back onClick={() => onSelect(null)} />
@@ -278,6 +291,43 @@ function ItemPanel({ it, fit, onRotate, onRemove, onDuplicate, onSelect, floor }
           <b>{def.detail}</b>
         </div>
       )}
+      <div className="kv">
+        <span>Height</span>
+        <b>
+          {def.h}"{def.clearUnder ? ` · ${def.clearUnder}" open underneath` : ''}
+        </b>
+      </div>
+      <div className="kv">
+        <span>{mount === 'wall' ? 'Hangs at' : 'Sits'}</span>
+        {mount === 'wall' ? (
+          <span className="elev">
+            <button onClick={() => onElev(it.uid, Math.max(0, elev - 2))} title="Lower 2 inches">−</button>
+            <input
+              type="number"
+              min={0}
+              max={CEILING - def.h}
+              value={Math.round(elev)}
+              onChange={(e) => {
+                const v = Number(e.target.value);
+                if (Number.isFinite(v)) onElev(it.uid, Math.min(CEILING - def.h, Math.max(0, v)));
+              }}
+              aria-label="Height of the bottom edge above the floor, inches"
+            />
+            <span className="muted">" up</span>
+            <button onClick={() => onElev(it.uid, Math.min(CEILING - def.h, elev + 2))} title="Raise 2 inches">+</button>
+          </span>
+        ) : (
+          <b>
+            {mount === 'ceiling'
+              ? `From the ceiling, bottom at ${Math.round(elev)}"`
+              : mount === 'surface'
+                ? st?.on
+                  ? `On the ${st.on.name.toLowerCase()}, at ${Math.round(elev)}"`
+                  : 'On the floor'
+                : 'On the floor'}
+          </b>
+        )}
+      </div>
       <div className="kv">
         <span>Rotation</span>
         <b>{Math.round(it.rot)}°</b>
@@ -300,7 +350,16 @@ function ItemPanel({ it, fit, onRotate, onRemove, onDuplicate, onSelect, floor }
         <button onClick={() => onDuplicate(it.uid)} title="Duplicate (Ctrl+D)">Duplicate</button>
         <button className="danger" onClick={() => onRemove(it.uid)} title="Delete (Del)">Remove</button>
       </div>
+      {st && <SideView it={it} floor={floor} items={items} stacks={stacks} person={person} />}
+      <div className="person-row">
+        <span className="muted small">Figure height</span>
+        <button onClick={() => onPerson(person - 1)} title="Shorter">−</button>
+        <b>{ftIn(person / 12)}</b>
+        <button onClick={() => onPerson(person + 1)} title="Taller">+</button>
+      </div>
       {def.tip && <p className="tip">{def.tip}</p>}
+      {mount === 'surface' && <p className="muted small">Surface pieces rest on whatever is under their center, and travel with it when you move it.</p>}
+      {mount === 'wall' && <p className="muted small">Wall pieces snap to the nearest wall and turn to face the room. Set the height above.</p>}
       {def.clearance && <p className="muted small">The faint zone shows recommended clear space. Hold Alt while dragging to turn off wall snapping.</p>}
     </div>
   );

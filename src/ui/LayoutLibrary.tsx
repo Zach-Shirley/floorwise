@@ -16,6 +16,8 @@ const STYLE_LABEL: Record<LayoutStyle, string> = {
   ranch: 'Ranch',
   'narrow-lot': 'Narrow lot',
   accessible: 'Accessible',
+  'great-room': 'Great room',
+  'live-work': 'Live / work',
 };
 export const styleLabel = (s: LayoutStyle) => STYLE_LABEL[s] ?? s;
 

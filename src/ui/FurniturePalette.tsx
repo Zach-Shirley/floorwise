@@ -10,8 +10,8 @@ export function MiniSymbol({ def }: { def: FurnitureDef }) {
   const s = Math.max(w, d) + pad * 2;
   return (
     <svg className="mini" viewBox={`${-s / 2} ${-s / 2} ${s} ${s}`}>
-      <g className="item lvl-ok">
-        <SymbolShape symbol={def.symbol} w={w} d={d} round={def.round} />
+      <g className={`item lvl-ok ${def.flat ? 'flat' : ''}`}>
+        <SymbolShape symbol={def.symbol} w={w} d={d} round={def.round} flip={def.flip} />
       </g>
     </svg>
   );
@@ -24,7 +24,7 @@ export function FurniturePalette({ onAdd }: { onAdd: (id: string) => void }) {
   return (
     <div className="palette">
       <input className="search" placeholder="Search furniture" value={q} onChange={(e) => setQ(e.target.value)} />
-      <p className="hint">Drag onto the plan, or click to drop it in the selected room. Sizes are real-world inches.</p>
+      <p className="hint">Drag onto the plan, or click to drop it in the selected room. Sizes are real-world inches. Wall pieces hang on walls; "on top" pieces sit on a desk, dresser or table.</p>
       {FURNITURE_CATEGORIES.map((cat) => {
         const list = FURNITURE.filter((f) => f.category === cat && match(f));
         if (!list.length) return null;
@@ -55,7 +55,7 @@ export function FurniturePalette({ onAdd }: { onAdd: (id: string) => void }) {
                     <MiniSymbol def={f} />
                     <span className="piece-name">{f.name}</span>
                     <span className="piece-dim">
-                      {f.w}" × {f.d}"
+                      {f.w}" × {f.d}"{f.mount === 'wall' ? ' · wall' : f.mount === 'surface' ? ' · on top' : f.mount === 'ceiling' ? ' · ceiling' : ''}
                     </span>
                   </button>
                 ))}

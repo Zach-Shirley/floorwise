@@ -120,6 +120,11 @@ export function usePlanner(initialLayout: string, initialFloor: string) {
     select: (sel: Selection) => dispatch({ t: 'select', sel }),
     checkpoint: () => dispatch({ t: 'checkpoint' }),
     patch: (uid: string, patch: Partial<PlacedItem>) => dispatch({ t: 'patch', uid, patch }),
+    /** Move several pieces at once. `history: false` for live dragging (call checkpoint() first). */
+    moveMany: (ups: { uid: string; x: number; y: number; rot: number }[], history = true) => {
+      const by = new Map(ups.map((u) => [u.uid, u]));
+      dispatch({ t: 'set', items: s.items.map((i) => (by.has(i.uid) ? { ...i, ...by.get(i.uid)! } : i)), history });
+    },
     /** A one-shot edit that gets its own undo step. */
     edit: (uid: string, patch: Partial<PlacedItem>) =>
       dispatch({ t: 'set', items: s.items.map((i) => (i.uid === uid ? { ...i, ...patch } : i)) }),

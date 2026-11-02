@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { getFurniture } from '../data/furniture';
 import { LAYOUTS, getLayout } from '../data/layouts';
 import { bathsLabel, bedsLabel } from '../engine/format';
-import { analyzeFit, findSpot, snapToWalls, itemBox, type PlacedItem } from '../engine/furniture';
+import { analyzeFit, carryRiders, findSpot, itemBox, resolveStacks, ridersOf, snapToWallMount, snapToWalls, type PlacedItem } from '../engine/furniture';
 import { inRoom } from '../engine/resolve';
 import { resolveLayout } from '../engine/resolve';
 import { autoFurnish } from '../engine/autofurnish';
@@ -19,6 +19,8 @@ interface Prefs {
   layout: string;
   tab: Tab;
   opts: ViewOpts;
+  /** Your height in inches, for the side view (default 6'2"). */
+  person: number;
 }
 
 function loadPrefs(): Prefs {
@@ -26,6 +28,7 @@ function loadPrefs(): Prefs {
     layout: LAYOUTS.find((l) => l.beds === 2)?.id ?? LAYOUTS[0].id,
     tab: 'plans',
     opts: { dims: true, zones: false, flow: false, furniture: true, grid: true },
+    person: 74,
   };
   let prefs = def;
   try {
@@ -63,6 +66,7 @@ export function App() {
   const floor = L.floors.find((f) => f.id === P.floorId) ?? L.floors[0];
   const floorItems = useMemo(() => P.items.filter((i) => i.floor === floor.id), [P.items, floor.id]);
   const fit = useMemo(() => analyzeFit(floor, floorItems), [floor, floorItems]);
+  const stacks = useMemo(() => resolveStacks(floor, floorItems), [floor, floorItems]);
   const [highlight, setHighlight] = useState<string[]>([]);
   const [scale, setScale] = useState(20);
   const [drawer, setDrawer] = useState<'left' | 'right' | null>(null);
@@ -110,8 +114,14 @@ export function App() {
   const addAt = (item: string, x: number, y: number) => {
     const fdef = getFurniture(item);
     if (!fdef) return;
-    const snapped = snapToWalls(floor, itemBox({ uid: '', item, floor: floor.id, x, y, rot: 0 }, fdef));
-    P.add(item, snapped.x, snapped.y);
+    const box = itemBox({ uid: '', item, floor: floor.id, x, y, rot: 0 }, fdef);
+    if (fdef.mount === 'wall') {
+      const m = snapToWallMount(floor, box);
+      P.add(item, m.x, m.y, m.rot);
+    } else {
+      const snapped = snapToWalls(floor, box);
+      P.add(item, snapped.x, snapped.y);
+    }
     if (!prefs.opts.furniture) setPrefs((p) => ({ ...p, opts: { ...p.opts, furniture: true } }));
   };
 
@@ -139,9 +149,17 @@ export function App() {
     if (!prefs.opts.furniture) setPrefs((p) => ({ ...p, opts: { ...p.opts, furniture: true } }));
   };
 
+  /** Move or rotate a piece, carrying anything that rests on it (monitors on a desk). */
+  const moveTo = (uid: string, to: { x: number; y: number; rot: number }) => {
+    const it = P.items.find((i) => i.uid === uid);
+    if (!it) return;
+    const riders = ridersOf(floor, floorItems, uid);
+    P.moveMany([{ uid, ...to }, ...carryRiders(riders, it, to)]);
+  };
+
   const rotateBy = (uid: string, delta: number) => {
     const it = P.items.find((i) => i.uid === uid);
-    if (it) P.edit(uid, { rot: (((it.rot + delta) % 360) + 360) % 360 });
+    if (it) moveTo(uid, { x: it.x, y: it.y, rot: (((it.rot + delta) % 360) + 360) % 360 });
   };
 
   // keyboard shortcuts
@@ -183,7 +201,7 @@ export function App() {
         const step = e.shiftKey ? 0.5 : 1 / 12;
         const dx = e.key === 'ArrowLeft' ? -step : e.key === 'ArrowRight' ? step : 0;
         const dy = e.key === 'ArrowUp' ? -step : e.key === 'ArrowDown' ? step : 0;
-        P.edit(uid, { x: it.x + dx, y: it.y + dy });
+        moveTo(uid, { x: it.x + dx, y: it.y + dy, rot: it.rot });
       }
     };
     window.addEventListener('keydown', onKey);
@@ -324,8 +342,8 @@ export function App() {
             if (s && s.kind !== 'item') setDrawer(null);
           }}
           onBeginEdit={P.checkpoint}
-          onMove={(uid, x, y) => P.patch(uid, { x, y })}
-          onRotate={(uid, rot) => P.patch(uid, { rot })}
+          stacks={stacks}
+          onMoveMany={(ups) => P.moveMany(ups, false)}
           onDropItem={addAt}
           onScale={setScale}
         />
@@ -362,6 +380,10 @@ export function App() {
             sel={P.sel}
             items={floorItems}
             fit={fit}
+            stacks={stacks}
+            person={prefs.person}
+            onPerson={(person) => setPrefs((p) => ({ ...p, person }))}
+            onElev={(uid, elev) => P.edit(uid, { elev })}
             onSelect={P.select}
             onHighlight={setHighlight}
             onRotate={rotateBy}

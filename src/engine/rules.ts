@@ -16,7 +16,7 @@ export interface Check {
 }
 
 const BEDROOMS: RoomType[] = ['bedroom', 'primary'];
-const NEEDS_WINDOW: RoomType[] = ['bedroom', 'primary', 'living', 'family', 'office'];
+const NEEDS_WINDOW: RoomType[] = ['bedroom', 'primary', 'living', 'family', 'office', 'great', 'studio', 'workshop'];
 /** Rooms that are fine to reach only through one other room. */
 const DEPENDENT: RoomType[] = ['closet', 'walkin', 'bath', 'powder', 'pantry', 'utility', 'laundry'];
 
@@ -118,7 +118,7 @@ export function runChecks(L: RLayout): Check[] {
   const g = circulationGraph(L);
   const all = reachable(g, OUT);
   const unreached: string[] = [];
-  for (const f of L.floors) for (const r of f.rooms) if (!all.has(key(f.id, r.id))) unreached.push(`${f.name}: ${r.name}`);
+  for (const f of L.floors) for (const r of f.rooms) if (r.type !== 'open-below' && !all.has(key(f.id, r.id))) unreached.push(`${f.name}: ${r.name}`);
   const mains = L.floors[0].doors.filter((d) => d.main);
   if (mains.length !== 1) unreached.push(`expected exactly one front door (main: true), found ${mains.length}`);
   for (const d of mains) if (d.width < 3 - 1e-6) unreached.push('front door should be at least 3\' wide');

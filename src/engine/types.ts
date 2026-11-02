@@ -38,7 +38,15 @@ export type RoomType =
   | 'garage'
   | 'porch'
   | 'deck'
-  | 'flex';
+  | 'flex'
+  /** A big combined living space: living + dining + kitchen + whatever else in one room. */
+  | 'great'
+  /** Shop space: tools, workbenches, projects. */
+  | 'workshop'
+  /** Creative work room: art, music, recording, making. */
+  | 'studio'
+  /** A double-height void on an upper floor (no floor to stand on). Not counted in area. */
+  | 'open-below';
 
 export type Zone = 'public' | 'private' | 'service' | 'circulation' | 'outdoor';
 
@@ -137,7 +145,9 @@ export type LayoutStyle =
   | 'two-story'
   | 'ranch'
   | 'narrow-lot'
-  | 'accessible';
+  | 'accessible'
+  | 'great-room'
+  | 'live-work';
 
 export interface DesignNote {
   title: string;
@@ -175,7 +185,13 @@ export type FurnitureCategory =
   | 'Laundry'
   | 'Storage'
   | 'Outdoor'
-  | 'Decor';
+  | 'Decor'
+  | 'Tech'
+  | 'Wall'
+  | 'Lighting'
+  | 'Workshop'
+  | 'Hobby'
+  | 'Fitness';
 
 export type SymbolKey =
   | 'bed'
@@ -214,6 +230,40 @@ export type SymbolKey =
   | 'water-heater'
   | 'plant'
   | 'piano'
+  | 'desk-l'
+  | 'monitor'
+  | 'pc-tower'
+  | 'laptop'
+  | 'keyboard'
+  | 'lamp'
+  | 'floor-lamp'
+  | 'shelf-wall'
+  | 'art'
+  | 'mirror'
+  | 'tv'
+  | 'speaker'
+  | 'pegboard'
+  | 'workbench'
+  | 'tool-chest'
+  | 'loft-bed'
+  | 'beanbag'
+  | 'ottoman'
+  | 'pool-table'
+  | 'ping-pong'
+  | 'arcade'
+  | 'treadmill'
+  | 'bike'
+  | 'weight-bench'
+  | 'rack'
+  | 'guitar'
+  | 'drums'
+  | 'aquarium'
+  | 'ceiling-fan'
+  | 'pendant'
+  | 'led-strip'
+  | 'printer'
+  | 'easel'
+  | 'divider'
   | 'generic';
 
 export interface FurnitureDef {
@@ -243,4 +293,36 @@ export interface FurnitureDef {
   resizable?: boolean;
   /** Extra info, e.g. 'Mattress 60" x 80"'. */
   detail?: string;
+
+  // --- Height (the "third dimension") -----------------------------------
+  // Pieces only collide when their footprints overlap AND their heights do.
+  // That is what lets a PC tower sit under a desk, a monitor sit on it, and a
+  // shelf hang on the wall above a dresser.
+
+  /** Overall height in inches, floor (or its mount point) to top. */
+  h: number;
+  /**
+   * How the piece is held up. Default 'floor'.
+   * - 'surface': rests on whatever is under its center (desk, dresser, counter).
+   * - 'wall': hangs on a wall at `elev` inches up; its back must touch a wall.
+   * - 'ceiling': hangs from the 8' ceiling.
+   */
+  mount?: 'floor' | 'surface' | 'wall' | 'ceiling';
+  /** Wall pieces: default height of the BOTTOM edge above the floor, in inches. */
+  elev?: number;
+  /** Open space under the piece in inches (a desk has ~26" of knee room; a loft bed much more). */
+  clearUnder?: number;
+  /** Chairs and stools: may tuck under anything with `clearUnder`. */
+  tucks?: boolean;
+  /** Floor pieces meant to live under a desk or table (PC tower, drawer pedestal). Helps auto-placement. */
+  under?: boolean;
+  /** Surface pieces: preferred things to sit on, by symbol, best first. Helps auto-placement. */
+  sitsOn?: SymbolKey[];
+  /**
+   * Non-rectangular footprint (L-desks, sectionals) as rectangles in inches,
+   * [x, y, w, d] measured from the back-left corner of the w x d box.
+   */
+  parts?: [number, number, number, number][];
+  /** Draw the symbol mirrored left-to-right (the "left-hand" version of an L-desk or sectional). */
+  flip?: boolean;
 }

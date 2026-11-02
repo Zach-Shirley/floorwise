@@ -46,6 +46,10 @@ export const ZONE_OF: Record<RoomType, Zone> = {
   kitchen: 'public',
   office: 'public',
   flex: 'public',
+  great: 'public',
+  studio: 'public',
+  workshop: 'service',
+  'open-below': 'circulation',
   powder: 'public',
   entry: 'circulation',
   hall: 'circulation',
@@ -66,7 +70,7 @@ export const ZONE_OF: Record<RoomType, Zone> = {
 
 export const WET_TYPES: RoomType[] = ['kitchen', 'bath', 'powder', 'laundry'];
 export const OUTDOOR_TYPES: RoomType[] = ['porch', 'deck'];
-export const UNCONDITIONED_TYPES: RoomType[] = ['garage', 'porch', 'deck'];
+export const UNCONDITIONED_TYPES: RoomType[] = ['garage', 'porch', 'deck', 'open-below'];
 
 export interface RRoom {
   id: string;

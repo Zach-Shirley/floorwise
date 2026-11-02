@@ -1,0 +1,123 @@
+import type { LayoutDef } from '../../engine/types';
+
+const layout: LayoutDef = {
+  id: 'artists-loft-house',
+  name: "Artist's Loft House",
+  kind: 'house',
+  styles: ['great-room', 'live-work', 'two-story', 'open-concept'],
+  beds: 1,
+  baths: 1.5,
+  summary: 'A double-height great room with a studio loft that looks down over it. Upstairs has one bedroom suite. The house trades bedrooms for volume and light.',
+  notes: [
+    {
+      title: 'Double height, on purpose',
+      body: 'Part of the great room has no ceiling until the roof. Upstairs, that area is marked "open to below". Tall walls take big windows and big artwork, and the room feels far larger than its floor area. The trade-off: you heat air you never stand in, and sound carries up to the loft.',
+      rooms: ['great', 'void'],
+    },
+    {
+      title: 'A loft, not a room',
+      body: 'The studio wraps the void on two sides behind a railing instead of a wall. You can paint, record or work while staying connected to the room below, and daylight from the tall windows reaches both levels.',
+      rooms: ['studio', 'void'],
+    },
+    {
+      title: 'Service stacked in one column',
+      body: 'Kitchen, laundry and powder room run down the east side of the ground floor. The upstairs bath sits directly above the kitchen, so the pipes run straight up instead of across the house.',
+      rooms: ['kitchen', 'laundry', 'powder', 'bath'],
+    },
+    {
+      title: 'The stair lands at the private end',
+      body: 'You climb from the entry and arrive at a small landing between the bath and the bedroom. The loft opens off the same landing, so guests visiting the studio never walk through the bedroom.',
+      rooms: ['stair', 'landing', 'bed'],
+    },
+    {
+      title: 'Small entry, big reveal',
+      body: 'The front door opens into a modest entry with a coat closet and the powder room. Then the space opens up two stories tall. Compressing the entry first makes the big room feel bigger.',
+      rooms: ['entry', 'great'],
+    },
+  ],
+  floors: [
+    {
+      id: 'ground',
+      name: 'Ground floor',
+      rooms: [
+        { id: 'great', name: 'Great room', type: 'great', rect: [0, 0, 18, 32], note: 'The north part is double height under the loft void. Hang tall art or a big light fixture here.' },
+        { id: 'kitchen', name: 'Kitchen', type: 'kitchen', rect: [18, 0, 14, 13] },
+        { id: 'stair', name: 'Stair', type: 'stair', rect: [18, 13, 4, 12] },
+        { id: 'laundry', name: 'Laundry', type: 'laundry', rect: [22, 13, 10, 6] },
+        { id: 'powder', name: 'Powder', type: 'powder', rect: [22, 19, 6, 6] },
+        { id: 'coats', name: 'Coats', type: 'closet', rect: [28, 19, 4, 6] },
+        { id: 'entry', name: 'Entry', type: 'entry', rect: [18, 25, 14, 7] },
+      ],
+      doors: [
+        { between: ['entry', 'outside'], side: 'S', at: 5, main: true },
+        { between: ['entry', 'great'], kind: 'open' },
+        { between: ['entry', 'stair'], kind: 'open' },
+        { between: ['kitchen', 'great'], kind: 'open' },
+        { between: ['kitchen', 'laundry'], at: 6, swing: 'laundry' },
+        { between: ['entry', 'powder'], swing: 'powder' },
+        { between: ['entry', 'coats'], kind: 'bifold', width: 3 },
+      ],
+      windows: [
+        { room: 'great', side: 'W', width: 6, at: 4 },
+        { room: 'great', side: 'W', width: 6, at: 18 },
+        { room: 'great', side: 'N', width: 8, at: 5 },
+        { room: 'great', side: 'S', width: 6, at: 6 },
+        { room: 'kitchen', side: 'E', width: 3, at: 8.5 },
+        { room: 'kitchen', side: 'N', width: 3, at: 9 },
+        { room: 'laundry', side: 'E', width: 2, at: 2 },
+      ],
+      fixtures: [
+        { item: 'fridge-36', room: 'kitchen', wall: 'N', at: 0.5 },
+        { item: 'counter', room: 'kitchen', wall: 'N', at: 3.5, w: 24 },
+        { item: 'range-30', room: 'kitchen', wall: 'N', at: 5.5 },
+        { item: 'counter', room: 'kitchen', wall: 'N', at: 8, w: 36 },
+        { item: 'sink-kitchen', room: 'kitchen', wall: 'E', at: 3 },
+        { item: 'dishwasher', room: 'kitchen', wall: 'E', at: 6 },
+        { item: 'island', room: 'kitchen', x: 6.5, y: 7.5, rot: 0 },
+        { item: 'washer', room: 'laundry', wall: 'S', at: 0 },
+        { item: 'dryer', room: 'laundry', wall: 'S', at: 2.4 },
+        { item: 'vanity-24', room: 'powder', wall: 'W', at: 0.5 },
+        { item: 'toilet', room: 'powder', wall: 'E', at: 0.5 },
+      ],
+    },
+    {
+      id: 'upper',
+      name: 'Upper floor',
+      rooms: [
+        { id: 'void', name: 'Open to below', type: 'open-below', rect: [0, 0, 12, 18] },
+        { id: 'studio', name: 'Loft studio', type: 'studio', rects: [[12, 0, 6, 18], [0, 18, 18, 14]], note: 'Behind a railing, not a wall: you look down into the great room.' },
+        { id: 'landing', name: 'Landing', type: 'hall', rect: [18, 9, 14, 4] },
+        { id: 'bath', name: 'Bath', type: 'bath', rect: [18, 0, 14, 9], note: 'Directly above the kitchen, so the drains drop straight down.' },
+        { id: 'stair', name: 'Stair', type: 'stair', rect: [18, 13, 4, 12] },
+        { id: 'bed', name: 'Bedroom', type: 'primary', rect: [22, 13, 10, 19] },
+        { id: 'walkin', name: 'Walk-in', type: 'walkin', rect: [18, 25, 4, 7] },
+      ],
+      doors: [
+        { between: ['void', 'studio'], kind: 'open', side: 'E' },
+        { between: ['void', 'studio'], kind: 'open', side: 'S' },
+        { between: ['landing', 'studio'], kind: 'open' },
+        { between: ['landing', 'stair'], kind: 'open' },
+        { between: ['landing', 'bath'], at: 1, swing: 'bath' },
+        { between: ['landing', 'bed'], at: 'end', hinge: 'end', swing: 'bed' },
+        { between: ['bed', 'walkin'], at: 1, swing: 'walkin' },
+      ],
+      windows: [
+        { room: 'void', side: 'N', width: 8, at: 2 },
+        { room: 'void', side: 'W', width: 6, at: 6 },
+        { room: 'studio', side: 'S', width: 6, at: 3 },
+        { room: 'studio', side: 'W', width: 4, at: 5 },
+        { room: 'bed', side: 'E', width: 4, at: 7 },
+        { room: 'bed', side: 'S', width: 4, at: 3 },
+        { room: 'bath', side: 'E', width: 2, at: 6.5 },
+      ],
+      fixtures: [
+        { item: 'vanity-60', room: 'bath', wall: 'N', at: 0.5 },
+        { item: 'tub-soaker', room: 'bath', wall: 'N', at: 8 },
+        { item: 'toilet', room: 'bath', wall: 'E', at: 4 },
+        { item: 'shower-36', room: 'bath', wall: 'W', at: 3 },
+      ],
+    },
+  ],
+};
+
+export default layout;

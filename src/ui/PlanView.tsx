@@ -1,8 +1,20 @@
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { getFurniture } from '../data/furniture';
 import { ftIn, sqft } from '../engine/format';
-import { clearanceZones, itemBox, snapToWalls, wallRect, type FitWarning, type PlacedItem } from '../engine/furniture';
-import { bbox as rectsBBox, type Pt } from '../engine/geometry';
+import {
+  carryRiders,
+  clearanceZones,
+  itemBox,
+  itemPolys,
+  ridersOf,
+  snapToWallMount,
+  snapToWalls,
+  wallRect,
+  type FitWarning,
+  type PlacedItem,
+  type Stack,
+} from '../engine/furniture';
+import { bbox as rectsBBox, convexOverlap, type Pt } from '../engine/geometry';
 import { WALL_EXT, WALL_HALF, inRoom, segPt, type RFloor, type RLayout, type RWall } from '../engine/resolve';
 import { circulationTree } from '../engine/rules';
 import type { Rect } from '../engine/types';
@@ -34,13 +46,14 @@ interface Props {
   floor: RFloor;
   items: PlacedItem[];
   fit: Map<string, FitWarning[]>;
+  stacks: Map<string, Stack>;
   sel: Selection;
   opts: ViewOpts;
   highlight: string[];
   onSelect: (s: Selection) => void;
   onBeginEdit: () => void;
-  onMove: (uid: string, x: number, y: number) => void;
-  onRotate: (uid: string, rot: number) => void;
+  /** Live move/rotate of a piece plus anything resting on it (no undo step). */
+  onMoveMany: (ups: { uid: string; x: number; y: number; rot: number }[]) => void;
   onDropItem: (item: string, x: number, y: number) => void;
   onScale: (s: number) => void;
 }
@@ -68,7 +81,7 @@ function wallDrawRect(w: RWall, floor: RFloor): Rect {
 }
 
 export const PlanView = forwardRef<PlanHandle, Props>(function PlanView(p, ref) {
-  const { L, floor, items, fit, sel, opts, highlight } = p;
+  const { L, floor, items, fit, stacks, sel, opts, highlight } = p;
   const wrap = useRef<HTMLDivElement>(null);
   const [size, setSize] = useState({ w: 800, h: 600 });
   const [vp, setVp] = useState({ s: 20, tx: 0, ty: 0 });
@@ -76,7 +89,20 @@ export const PlanView = forwardRef<PlanHandle, Props>(function PlanView(p, ref) 
   const [cursor, setCursor] = useState<Pt | null>(null);
   const drag = useRef<
     | null
-    | { mode: 'pan' | 'item' | 'rotate'; sx: number; sy: number; moved: boolean; target?: string; ox?: number; oy?: number; tx: number; ty: number }
+    | {
+        mode: 'pan' | 'item' | 'rotate';
+        sx: number;
+        sy: number;
+        moved: boolean;
+        target?: string;
+        ox?: number;
+        oy?: number;
+        tx: number;
+        ty: number;
+        /** Pieces resting on the dragged one, as they were when the drag started. */
+        riders?: PlacedItem[];
+        from?: { x: number; y: number; rot: number };
+      }
   >(null);
 
   const extent = useMemo(() => rectsBBox(L.floors.flatMap((f) => f.rooms.flatMap((r) => r.rects))), [L]);
@@ -158,16 +184,26 @@ export const PlanView = forwardRef<PlanHandle, Props>(function PlanView(p, ref) 
     (e.currentTarget as Element).setPointerCapture(e.pointerId);
     if (e.button === 0 && rotEl) {
       p.onBeginEdit();
-      drag.current = { ...base, mode: 'rotate', target: rotEl.getAttribute('data-rot')! };
+      const uid = rotEl.getAttribute('data-rot')!;
+      const it = items.find((i) => i.uid === uid)!;
+      drag.current = { ...base, mode: 'rotate', target: uid, riders: ridersOf(floor, items, uid), from: { x: it.x, y: it.y, rot: it.rot } };
       return;
     }
     if (e.button === 0 && itemEl && opts.furniture) {
-      const uid = itemEl.getAttribute('data-item')!;
-      const it = items.find((i) => i.uid === uid)!;
       const w = toWorld(e.clientX, e.clientY);
+      const uid = pickItem(w) ?? itemEl.getAttribute('data-item')!;
+      const it = items.find((i) => i.uid === uid)!;
       p.onSelect({ kind: 'item', uid });
       p.onBeginEdit();
-      drag.current = { ...base, mode: 'item', target: uid, ox: w.x - it.x, oy: w.y - it.y };
+      drag.current = {
+        ...base,
+        mode: 'item',
+        target: uid,
+        ox: w.x - it.x,
+        oy: w.y - it.y,
+        riders: ridersOf(floor, items, uid),
+        from: { x: it.x, y: it.y, rot: it.rot },
+      };
       return;
     }
     const fx = t.closest('[data-fixture]')?.getAttribute('data-fixture');
@@ -191,14 +227,18 @@ export const PlanView = forwardRef<PlanHandle, Props>(function PlanView(p, ref) 
       const inch = 1 / 12;
       let x = Math.round((w.x - d.ox!) / inch) * inch;
       let y = Math.round((w.y - d.oy!) / inch) * inch;
-      if (!e.altKey) ({ x, y } = snapToWalls(floor, itemBox({ ...it, x, y }, def)));
-      p.onMove(it.uid, x, y);
+      let rot = it.rot;
+      if (!e.altKey && def.mount === 'wall') ({ x, y, rot } = snapToWallMount(floor, itemBox({ ...it, x, y }, def)));
+      else if (!e.altKey) ({ x, y } = snapToWalls(floor, itemBox({ ...it, x, y }, def)));
+      const to = { x, y, rot };
+      p.onMoveMany([{ uid: it.uid, ...to }, ...carryRiders(d.riders ?? [], d.from!, to)]);
     } else if (d.mode === 'rotate') {
       const it = items.find((i) => i.uid === d.target);
       if (!it) return;
       let a = (Math.atan2(w.y - it.y, w.x - it.x) * 180) / Math.PI + 90;
       a = e.shiftKey ? Math.round(a) : Math.round(a / 15) * 15;
-      p.onRotate(it.uid, ((a % 360) + 360) % 360);
+      const to = { x: it.x, y: it.y, rot: ((a % 360) + 360) % 360 };
+      p.onMoveMany([{ uid: it.uid, ...to }, ...carryRiders(d.riders ?? [], d.from!, to)]);
     }
   };
 
@@ -217,6 +257,43 @@ export const PlanView = forwardRef<PlanHandle, Props>(function PlanView(p, ref) 
   const hl = new Set([...highlight, ...(hoverRoom ? [hoverRoom] : [])]);
   const selRoom = sel?.kind === 'room' ? sel.id : null;
   const [ex, ey, ew, eh] = extent;
+
+  // Furniture draw order, and which pieces end up hidden under something else.
+  const drawOrder = useMemo(() => {
+    const list = items.flatMap((it) => {
+      const def = getFurniture(it.item);
+      const st = stacks.get(it.uid);
+      if (!def || !st) return [];
+      const b = itemBox(it, def);
+      return [{ it, def, b, st, polys: itemPolys(b, def) }];
+    });
+    const rank = (x: (typeof list)[number]) => (x.def.flat ? -1 : x.st.band[0] + x.st.band[1] / 1000);
+    return list.sort((a, b) => rank(a) - rank(b));
+  }, [items, stacks]);
+  const isOverhead = (x: (typeof drawOrder)[number]) => x.st.band[0] >= 48 || x.def.mount === 'ceiling';
+  const hidden = useMemo(
+    () =>
+      drawOrder.filter(
+        (a, i) =>
+          !a.def.flat &&
+          drawOrder
+            .slice(i + 1)
+            .some((b) => !b.def.flat && !isOverhead(b) && a.polys.some((p) => b.polys.some((q) => convexOverlap(p, q, 0.05) > 0))),
+      ),
+    [drawOrder], // eslint-disable-line react-hooks/exhaustive-deps
+  );
+  /** With pieces stacked, a click picks the smallest one under the cursor (ceiling pieces last). */
+  function pickItem(w: Pt): string | undefined {
+    const dot = [w, { x: w.x + 0.01, y: w.y }, { x: w.x, y: w.y + 0.01 }];
+    let best: { uid: string; score: number } | undefined;
+    for (const x of drawOrder) {
+      if (!x.polys.some((p) => convexOverlap(p, dot, 0) > 0)) continue;
+      const score = x.b.w * x.b.d * (x.def.mount === 'ceiling' ? 6 : 1) * (x.def.flat ? 50 : 1);
+      if (!best || score < best.score) best = { uid: x.it.uid, score };
+    }
+    return best?.uid;
+  }
+  const selItem = sel?.kind === 'item' ? drawOrder.find((x) => x.it.uid === sel.uid) : undefined;
 
   // circulation polylines: room center -> door -> room center
   const flowLines: Pt[][] = [];
@@ -289,6 +366,13 @@ export const PlanView = forwardRef<PlanHandle, Props>(function PlanView(p, ref) 
               {r.rects.map((q, i) => (
                 <rect key={i} x={q[0]} y={q[1]} width={q[2]} height={q[3]} />
               ))}
+              {r.type === 'open-below' &&
+                r.rects.map((q, i) => (
+                  <g key={`v${i}`} className="void-x">
+                    <line x1={q[0]} y1={q[1]} x2={q[0] + q[2]} y2={q[1] + q[3]} {...NS} />
+                    <line x1={q[0] + q[2]} y1={q[1]} x2={q[0]} y2={q[1] + q[3]} {...NS} />
+                  </g>
+                ))}
               {r.outdoor &&
                 r.boundary.map((s, i) => {
                   const a = segPt(s, s.a0),
@@ -347,7 +431,7 @@ export const PlanView = forwardRef<PlanHandle, Props>(function PlanView(p, ref) 
               className={`fixture ${sel?.kind === 'fixture' && sel.id === f.id ? 'sel' : ''}`}
               transform={`translate(${f.cx} ${f.cy}) rotate(${f.rot})`}
             >
-              <SymbolShape symbol={f.def.symbol} w={f.w} d={f.d} round={f.def.round} />
+              <SymbolShape symbol={f.def.symbol} w={f.w} d={f.d} round={f.def.round} flip={f.def.flip} />
             </g>
           ))}
 
@@ -500,35 +584,57 @@ export const PlanView = forwardRef<PlanHandle, Props>(function PlanView(p, ref) 
             })}
           </g>
 
-          {/* furniture */}
+          {/* furniture, drawn bottom-up: rugs, floor pieces, things on top, then wall and ceiling pieces */}
           {opts.furniture && (
             <g className="furniture">
-              {items.map((it) => {
-                const def = getFurniture(it.item);
-                if (!def) return null;
-                const b = itemBox(it, def);
+              {drawOrder.map(({ it, def, b, st }) => {
                 const warns = fit.get(it.uid);
                 const level = warns?.some((w) => w.level === 'block') ? 'block' : warns ? 'tight' : 'ok';
                 const isSel = sel?.kind === 'item' && sel.uid === it.uid;
+                const mount = def.mount ?? 'floor';
+                const overhead = st.band[0] >= 48 || mount === 'ceiling';
                 return (
-                  <g key={it.uid} className={`item lvl-${level} ${isSel ? 'sel' : ''} ${def.flat ? 'flat' : ''}`}>
+                  <g
+                    key={it.uid}
+                    className={`item lvl-${level} ${isSel ? 'sel' : ''} ${def.flat ? 'flat' : ''} ${overhead ? 'overhead' : ''} m-${mount}`}
+                  >
                     {isSel &&
                       clearanceZones(b, def).map((z, i) => <polygon key={i} points={pts(z.poly)} className="clear-zone" {...NS} />)}
                     <g data-item={it.uid} transform={`translate(${it.x} ${it.y}) rotate(${it.rot})`}>
-                      <SymbolShape symbol={def.symbol} w={b.w} d={b.d} round={def.round} />
+                      <SymbolShape symbol={def.symbol} w={b.w} d={b.d} round={def.round} flip={def.flip} />
                       {level === 'block' && <rect x={-b.w / 2} y={-b.d / 2} width={b.w} height={b.d} fill="url(#hatch)" className="block-hatch" />}
                     </g>
-                    {isSel && (
-                      <g transform={`translate(${it.x} ${it.y}) rotate(${it.rot})`}>
-                        <rect x={-b.w / 2 - px(3)} y={-b.d / 2 - px(3)} width={b.w + px(6)} height={b.d + px(6)} className="sel-box" {...NS} />
-                        <line x1={0} y1={-b.d / 2 - px(3)} x2={0} y2={-b.d / 2 - px(22)} className="sel-box" {...NS} />
-                        <circle data-rot={it.uid} cx={0} cy={-b.d / 2 - px(28)} r={px(7)} className="rot-handle" {...NS} />
-                        <path d={`M${-px(5)} ${b.d / 2 + px(9)} L0 ${b.d / 2 + px(14)} L${px(5)} ${b.d / 2 + px(9)}`} className="front-mark" fill="none" {...NS} />
-                      </g>
-                    )}
                   </g>
                 );
               })}
+              {/* pieces hidden under something taller: a dashed outline you can still click */}
+              {hidden.map(({ it, polys }) => (
+                <g key={`h-${it.uid}`} className={`hidden-item ${sel?.kind === 'item' && sel.uid === it.uid ? 'sel' : ''}`}>
+                  {polys.map((poly, i) => (
+                    <polygon key={i} points={pts(poly)} {...NS} />
+                  ))}
+                </g>
+              ))}
+              {selItem && (
+                <g transform={`translate(${selItem.it.x} ${selItem.it.y}) rotate(${selItem.it.rot})`}>
+                  <rect
+                    x={-selItem.b.w / 2 - px(3)}
+                    y={-selItem.b.d / 2 - px(3)}
+                    width={selItem.b.w + px(6)}
+                    height={selItem.b.d + px(6)}
+                    className="sel-box"
+                    {...NS}
+                  />
+                  <line x1={0} y1={-selItem.b.d / 2 - px(3)} x2={0} y2={-selItem.b.d / 2 - px(22)} className="sel-box" {...NS} />
+                  <circle data-rot={selItem.it.uid} cx={0} cy={-selItem.b.d / 2 - px(28)} r={px(7)} className="rot-handle" {...NS} />
+                  <path
+                    d={`M${-px(5)} ${selItem.b.d / 2 + px(9)} L0 ${selItem.b.d / 2 + px(14)} L${px(5)} ${selItem.b.d / 2 + px(9)}`}
+                    className="front-mark"
+                    fill="none"
+                    {...NS}
+                  />
+                </g>
+              )}
             </g>
           )}
 

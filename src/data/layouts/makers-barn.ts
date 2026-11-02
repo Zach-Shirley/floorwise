@@ -1,0 +1,95 @@
+import type { LayoutDef } from '../../engine/types';
+
+const layout: LayoutDef = {
+  id: 'makers-barn',
+  name: "Maker's Barn",
+  kind: 'house',
+  styles: ['great-room', 'live-work', 'open-concept'],
+  beds: 1,
+  baths: 1,
+  summary: 'One bedroom, one huge great room and a real workshop with a roll-up door. Built for someone who makes things and wants open wall space more than extra bedrooms.',
+  notes: [
+    {
+      title: 'One big room instead of many small ones',
+      body: 'The kitchen and great room together are 28\' x 32\'. With no interior walls in the way, you decide where the sofa, the dining table, a desk or a drafting table go, and you can rearrange later. Long blank walls take shelving, art or a pegboard.',
+      rooms: ['great', 'kitchen'],
+    },
+    {
+      title: 'The mudroom is a dust lock',
+      body: 'The shop never opens straight into the house. You pass through the mud/laundry room, where boots come off and dirty clothes go straight into the washer. Two doors between the table saw and the sofa keep sawdust and noise out.',
+      rooms: ['shop', 'mud'],
+    },
+    {
+      title: 'Open plans need furniture zoning',
+      body: 'With no walls, rugs and furniture do the job walls would. A rug and a sofa facing away from the kitchen mark the living area, and a pendant light over the table marks dining. Noise travels freely in open rooms, so soft surfaces such as rugs, curtains and full bookshelves help.',
+      rooms: ['great'],
+    },
+    {
+      title: 'One wet cluster',
+      body: 'Kitchen, bath and laundry sit side by side along the north wall, so a single plumbing run serves all three. That leaves the great room and bedroom free of pipes.',
+      rooms: ['kitchen', 'bath', 'mud'],
+    },
+    {
+      title: 'The closet buffers the shop',
+      body: 'The walk-in closet runs between the bedroom and the shop. Racks of clothes soften the sound of tools if someone is sleeping while someone else is working.',
+      rooms: ['walkin', 'shop', 'bed'],
+    },
+  ],
+  floors: [
+    {
+      id: 'main',
+      name: 'Main floor',
+      rooms: [
+        { id: 'kitchen', name: 'Kitchen', type: 'kitchen', rect: [0, 0, 28, 10], note: 'One long wall of counters with an island. The island doubles as a big work table.' },
+        { id: 'great', name: 'Great room', type: 'great', rect: [0, 10, 28, 22], note: 'Over 600 sq ft with no interior walls. Living, dining and a hobby corner all fit here.' },
+        { id: 'bath', name: 'Bath', type: 'bath', rect: [28, 0, 8, 10] },
+        { id: 'mud', name: 'Mud / laundry', type: 'laundry', rect: [36, 0, 8, 10], note: 'The only way from the shop into the house. Boots off, clothes in the washer.' },
+        { id: 'hall', name: 'Hall', type: 'hall', rect: [28, 10, 16, 4] },
+        { id: 'bed', name: 'Bedroom', type: 'primary', rect: [28, 14, 12, 18] },
+        { id: 'walkin', name: 'Walk-in', type: 'walkin', rect: [40, 14, 4, 18] },
+        { id: 'shop', name: 'Workshop', type: 'workshop', rect: [44, 0, 18, 22], note: 'Heated and insulated, so it counts as living space. The roll-up door lets lumber, a car or big projects in.' },
+      ],
+      doors: [
+        { between: ['great', 'outside'], side: 'S', at: 12, main: true },
+        { between: ['kitchen', 'great'], kind: 'open' },
+        { between: ['great', 'hall'], kind: 'open' },
+        { between: ['hall', 'bath'], at: 'start' },
+        { between: ['hall', 'mud'], at: 'end' },
+        { between: ['hall', 'bed'], at: 1 },
+        { between: ['bed', 'walkin'], at: 1 },
+        { between: ['mud', 'shop'], at: 'start' },
+        { between: ['mud', 'outside'], side: 'N', at: 4 },
+        { between: ['shop', 'outside'], side: 'E', kind: 'garage', width: 9, at: 6 },
+      ],
+      windows: [
+        { room: 'kitchen', side: 'N', width: 3, at: 14 },
+        { room: 'kitchen', side: 'W', width: 3, at: 5 },
+        { room: 'great', side: 'S', width: 5, at: 3 },
+        { room: 'great', side: 'S', width: 5, at: 19 },
+        { room: 'great', side: 'W', width: 6, at: 6 },
+        { room: 'bath', side: 'N', width: 2, at: 5 },
+        { room: 'bed', side: 'S', width: 5, at: 3.5 },
+        { room: 'shop', side: 'N', width: 3, at: 3 },
+        { room: 'shop', side: 'N', width: 3, at: 12 },
+        { room: 'shop', side: 'S', width: 3, at: 7 },
+      ],
+      fixtures: [
+        { item: 'fridge-36', room: 'kitchen', wall: 'N', at: 3 },
+        { item: 'counter', room: 'kitchen', wall: 'N', at: 6, w: 24 },
+        { item: 'range-36', room: 'kitchen', wall: 'N', at: 8 },
+        { item: 'counter', room: 'kitchen', wall: 'N', at: 11, w: 36 },
+        { item: 'sink-kitchen', room: 'kitchen', wall: 'N', at: 14 },
+        { item: 'dishwasher', room: 'kitchen', wall: 'N', at: 17 },
+        { item: 'counter', room: 'kitchen', wall: 'N', at: 19, w: 48 },
+        { item: 'island', room: 'kitchen', x: 14, y: 7, rot: 0 },
+        { item: 'tub', room: 'bath', wall: 'N', at: 0 },
+        { item: 'vanity-30', room: 'bath', wall: 'E', at: 3 },
+        { item: 'toilet', room: 'bath', wall: 'E', at: 6 },
+        { item: 'washer', room: 'mud', wall: 'W', at: 0 },
+        { item: 'dryer', room: 'mud', wall: 'W', at: 2.4 },
+      ],
+    },
+  ],
+};
+
+export default layout;
