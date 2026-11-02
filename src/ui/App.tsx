@@ -7,6 +7,7 @@ import { loadFinishes, saveFinishes, type Finishes, type RoomFinish } from '../e
 import { inRoom } from '../engine/resolve';
 import { resolveLayout } from '../engine/resolve';
 import { autoFurnish } from '../engine/autofurnish';
+import { ErrorBoundary } from './ErrorBoundary';
 import { FurniturePalette } from './FurniturePalette';
 import { Inspector } from './Inspector';
 import { LayoutLibrary } from './LayoutLibrary';
@@ -400,6 +401,7 @@ export function App() {
       </aside>
 
       <main className="stage">
+        <ErrorBoundary label="view" resetKey={`${mode}/${P.layoutId}/${floor.id}`}>
         {mode === 'walk' ? (
           <Suspense fallback={<div className="walk-loading">Building the 3D view…</div>}>
             <Walk3D
@@ -449,6 +451,7 @@ export function App() {
             onScale={setScale}
           />
         )}
+        </ErrorBoundary>
         <div className="stage-foot">
           {floorItems.length === 0 && (
             <button className="badge cta" onClick={furnishAll}>
@@ -480,25 +483,27 @@ export function App() {
 
       <aside className="right">
         <div className="panel-scroll">
-          <Inspector
-            L={L}
-            floor={floor}
-            sel={P.sel}
-            items={floorItems}
-            fit={fit}
-            stacks={stacks}
-            person={prefs.person}
-            onPerson={(person) => setPrefs((p) => ({ ...p, person }))}
-            onElev={(uid, elev) => P.edit(uid, { elev })}
-            onColor={(uid, color) => P.edit(uid, { color })}
-            finishes={finishes}
-            onFinish={setRoomFinish}
-            onSelect={P.select}
-            onHighlight={setHighlight}
-            onRotate={rotateBy}
-            onRemove={P.remove}
-            onDuplicate={P.duplicate}
-          />
+          <ErrorBoundary label="details panel" resetKey={JSON.stringify(P.sel)}>
+            <Inspector
+              L={L}
+              floor={floor}
+              sel={P.sel}
+              items={floorItems}
+              fit={fit}
+              stacks={stacks}
+              person={prefs.person}
+              onPerson={(person) => setPrefs((p) => ({ ...p, person }))}
+              onElev={(uid, elev) => P.edit(uid, { elev })}
+              onColor={(uid, color) => P.edit(uid, { color })}
+              finishes={finishes}
+              onFinish={setRoomFinish}
+              onSelect={P.select}
+              onHighlight={setHighlight}
+              onRotate={rotateBy}
+              onRemove={P.remove}
+              onDuplicate={P.duplicate}
+            />
+          </ErrorBoundary>
         </div>
       </aside>
       {drawer && <div className="scrim" onClick={() => setDrawer(null)} />}

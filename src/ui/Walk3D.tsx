@@ -960,7 +960,7 @@ function Stairs({ room, down }: { room: RRoom; down: boolean }) {
           <mesh position={[s.rect[0] + s.rect[2] / 2, (y0 + s.top) / 2, s.rect[1] + s.rect[3] / 2]} scale={[s.rect[2], s.top - y0, s.rect[3]]} material={material('#efece6', '', 'paper')}>
             <boxGeometry />
           </mesh>
-          <mesh position={[s.rect[0] + s.rect[2] / 2, s.top - 0.04, s.rect[1] + s.rect[3] / 2]} scale={[s.rect[2] + 0.04, 0.08, s.rect[3] + 0.04]} material={material('#a47b55', '', 'wood')}>
+          <mesh position={[s.rect[0] + s.rect[2] / 2, s.top + 0.02, s.rect[1] + s.rect[3] / 2]} scale={[s.rect[2] + 0.04, 0.06, s.rect[3] + 0.04]} material={material('#a47b55', '', 'wood')}>
             <boxGeometry />
           </mesh>
         </group>

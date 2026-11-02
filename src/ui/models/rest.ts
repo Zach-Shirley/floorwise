@@ -178,7 +178,7 @@ const build: ModelFn = (def, w, d, h) => {
         cyl(0, 0, bz - 2, w * 0.45, 8, bowlD * 0.45, C.white, { m: 'ceramic', taper: 1.25 }), // pedestal
         sph(0, 11.5, bz, w * 0.82, 8, bowlD, C.white, { m: 'ceramic' }), // bowl
         torus(0, 15.3, bz, w * 0.82, 1.2, bowlD, C.white, { m: 'plastic', tube: 0.2 }), // seat
-        rbox(0, 15.6, bz, w * 0.74, 0.7, bowlD - 2.5, C.offwhite, { m: 'plastic', r: 0.35 }), // lid closed
+        cyl(0, 15.6, bz + 0.3, w * 0.8, 0.7, bowlD - 1.2, C.offwhite, { m: 'plastic' }), // lid closed (oval, like the seat)
         rbox(0, 14, -d / 2 + tankD + 1, w * 0.55, 3, 3, C.white, { m: 'ceramic', r: 1 }),
       ];
     }

@@ -59,7 +59,7 @@ export function SideView({ it, floor, items, stacks, person }: Props) {
   for (const o of items) {
     const od = getFurniture(o.item);
     const st = stacks.get(o.uid);
-    if (!od || !st || od.flat) continue;
+    if (!od || !st || (od.flat && o.uid !== it.uid)) continue;
     consider(o.uid, od.name, itemPolys(itemBox(o, od), od), st.band, st.elev, od.mount, o.uid === it.uid);
   }
   for (const f of floor.fixtures) consider(f.id, f.def.name, [itemCorners(f)], [f.def.clearUnder ?? 0, f.def.h], 0, 'floor', false);
@@ -76,7 +76,8 @@ export function SideView({ it, floor, items, stacks, person }: Props) {
   const Y = (y: number) => H - pad * 0.6 - y * k;
   const fx = X(x1 - 14);
   const eye = person - 4.5;
-  const selBar = bars.find((b) => b.sel)!;
+  const selBar = bars.find((b) => b.sel);
+  if (!selBar) return null;
 
   return (
     <figure className="sideview">

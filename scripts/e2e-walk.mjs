@@ -192,6 +192,34 @@ const scenarios = {
     const c = await walk('cam');
     check('can walk out of the doorway', c.x < 11.6, `x=${c.x.toFixed(2)}`);
   },
+  // picking up a rug used to blank the whole app (the side view had nothing to draw for a flat piece)
+  async rug() {
+    await open('studio-loft', [{ uid: 'rug', item: 'rug-5x8', floor: 'main', x: 9, y: 6, rot: 0 }]);
+    // park the mouse at the center first: in pointer lock, moving it would turn the view
+    const b = await canvasBox();
+    await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2);
+    await sleep(200);
+    const press = async () => {
+      await page.mouse.down();
+      await page.mouse.up();
+      await sleep(300);
+    };
+    await walk('setPos', 9, 9.5);
+    await walk('setLook', 0, -45);
+    await sleep(400);
+    check('aims at the rug', (await aim()).includes('Rug'), await aim());
+    await press();
+    await sleep(400);
+    check('holding the rug', (await walk('held')) === 'rug');
+    const alive = await page.evaluate(() => !!document.querySelector('.walk canvas') && !!document.querySelector('.insp h2'));
+    check('app still on screen with the rug selected', alive);
+    const r0 = (await items()).find((i) => i.uid === 'rug');
+    await walk('setLook', 20, -45);
+    await sleep(600);
+    await press();
+    const r = (await items()).find((i) => i.uid === 'rug');
+    check('rug follows a turn to the right', r.x > r0.x + 0.8, `x ${r0.x.toFixed(2)} -> ${r.x.toFixed(2)}`);
+  },
   async stairs() {
     await open('family-two-story', []);
     // stair rect [20.5, 14, 3.5, 11], climbing north; stand in the foyer south of it
