@@ -137,32 +137,40 @@ const bandOf = (def: FurnitureDef, elev: number): [number, number] => [elev + (d
  */
 export function resolveStacks(floor: RFloor, items: PlacedItem[]): Map<string, Stack> {
   const res = new Map<string, Stack>();
-  const supports: { uid?: string; name: string; polys: Pt[][]; top: number }[] = floor.fixtures.map((f) => ({
-    name: f.def.name,
-    polys: [itemCorners(f)],
-    top: f.def.h,
-  }));
+  type Support = { uid?: string; name: string; polys: Pt[][]; top: number };
+  const base: Support[] = floor.fixtures.map((f) => ({ name: f.def.name, polys: [itemCorners(f)], top: f.def.h }));
+  const holders: PlacedItem[] = [];
   const surface: PlacedItem[] = [];
   for (const p of items) {
     const def = getFurniture(p.item);
     if (!def) continue;
     const mount = def.mount ?? 'floor';
     if (mount === 'surface') {
-      surface.push(p);
+      (def.holds ? holders : surface).push(p);
       continue;
     }
     const elev = mount === 'wall' ? p.elev ?? def.elev ?? 48 : mount === 'ceiling' ? CEILING - def.h : 0;
     res.set(p.uid, { elev, band: bandOf(def, elev) });
-    if (mount === 'floor' && !def.flat) supports.push({ uid: p.uid, name: def.name, polys: itemPolys(itemBox(p, def), def), top: def.h });
+    // Things rest on floor furniture (not on chairs pushed under a desk), and on wall-mounted desks.
+    const supports = (mount === 'floor' && !def.flat && !def.tucks) || (mount === 'wall' && def.symbol === 'desk');
+    if (supports) base.push({ uid: p.uid, name: def.name, polys: itemPolys(itemBox(p, def), def), top: elev + def.h });
   }
-  for (const p of surface) {
+  const settle = (p: PlacedItem, supports: Support[]) => {
     const def = getFurniture(p.item)!;
     const c = { x: p.x, y: p.y };
-    let best: (typeof supports)[number] | null = null;
-    for (const s of supports) if (s.polys.some((poly) => pointInConvex(c, poly)) && (!best || s.top > best.top)) best = s;
+    let best: Support | null = null;
+    for (const s of supports) {
+      if (s.uid === p.uid) continue;
+      if (s.polys.some((poly) => pointInConvex(c, poly)) && (!best || s.top > best.top)) best = s;
+    }
     const elev = best?.top ?? 0;
     res.set(p.uid, { elev, band: bandOf(def, elev), on: best ? { uid: best.uid, name: best.name } : undefined });
-  }
+    return { uid: p.uid, name: def.name, polys: itemPolys(itemBox(p, def), def), top: elev + def.h };
+  };
+  // Holders (mats, risers) settle first, twice so a riser can sit on a mat; then everything else.
+  let held = holders.map((p) => settle(p, base));
+  held = holders.map((p) => settle(p, [...base, ...held]));
+  for (const p of surface) settle(p, [...base, ...held]);
   return res;
 }
 
@@ -232,7 +240,9 @@ export function analyzeFit(floor: RFloor, items: PlacedItem[]): Map<string, FitW
     for (const other of boxes) {
       if (other === it || other.def.flat) continue;
       if (it.st.on?.uid === other.p.uid || other.st.on?.uid === it.p.uid) continue; // resting on it
-      if ((it.def.tucks && other.def.clearUnder) || (other.def.tucks && it.def.clearUnder)) continue; // chair pushed in
+      // a chair pushed in under a desk or table, and so passing under whatever sits on top of it
+      const tuckedUnder = (a: FurnitureDef, b: FurnitureDef) => a.tucks && (b.clearUnder || b.mount === 'surface');
+      if (tuckedUnder(it.def, other.def) || tuckedUnder(other.def, it.def)) continue;
       if (!bandsOverlap(it.st.band, other.st.band)) continue; // one is above the other
       if (polysOverlap(it.polys, other.polys, TOL)) add('block', `Overlaps the ${other.def.name.toLowerCase()}`);
     }
@@ -333,17 +343,29 @@ export function snapToWallMount(floor: RFloor, b: ItemBox): { x: number; y: numb
  * beneath it (a PC tower, a drawer pedestal).
  */
 export function ridersOf(floor: RFloor, items: PlacedItem[], uid: string): PlacedItem[] {
-  const host = items.find((i) => i.uid === uid);
-  const hdef = host && getFurniture(host.item);
-  if (!host || !hdef) return [];
   const stacks = resolveStacks(floor, items);
-  const hostPolys = hdef.clearUnder ? itemPolys(itemBox(host, hdef), hdef) : [];
-  return items.filter((i) => {
-    if (i.uid === uid) return false;
-    if (stacks.get(i.uid)?.on?.uid === uid) return true;
-    const d = getFurniture(i.item);
-    return !!d?.under && d.h <= (hdef.clearUnder ?? 0) && hostPolys.some((p) => pointInConvex({ x: i.x, y: i.y }, p));
-  });
+  const out: PlacedItem[] = [];
+  const seen = new Set([uid]);
+  const queue = [uid];
+  while (queue.length) {
+    const hid = queue.shift()!;
+    const host = items.find((i) => i.uid === hid);
+    const hdef = host && getFurniture(host.item);
+    if (!host || !hdef) continue;
+    const hostPolys = hdef.clearUnder ? itemPolys(itemBox(host, hdef), hdef) : [];
+    for (const i of items) {
+      if (seen.has(i.uid)) continue;
+      const d = getFurniture(i.item);
+      const onIt = stacks.get(i.uid)?.on?.uid === hid;
+      const underIt = !!d?.under && d.h <= (hdef.clearUnder ?? 0) && hostPolys.some((p) => pointInConvex({ x: i.x, y: i.y }, p));
+      if (onIt || underIt) {
+        seen.add(i.uid);
+        out.push(i);
+        queue.push(i.uid); // a keyboard on a mat on a desk travels with the desk
+      }
+    }
+  }
+  return out;
 }
 
 /** Move `riders` the same way their support moved from `from` to `to` (translate + rotate about its center). */

@@ -107,6 +107,7 @@ export function usePlanner(initialLayout: string, initialFloor: string) {
       const it: PlacedItem = { uid: newUid(), item, floor: s.floorId, x, y, rot };
       dispatch({ t: 'set', items: [...s.items, it] });
       dispatch({ t: 'select', sel: { kind: 'item', uid: it.uid } });
+      return it.uid;
     },
     [s.items, s.floorId],
   );

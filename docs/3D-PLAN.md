@@ -1,6 +1,9 @@
 # Taking Floorwise into 3D
 
-Status: a plan. Nothing here is built yet (v0.2, November 2026).
+Status:
+- **Phases A and B shipped together in v0.3 (November 2026):** walking and editing the room you're standing in.
+- **Phase C (lighting)** is next.
+- The notes below are kept as the original plan, with what changed marked "Built".
 
 The goal: pick a room and appear in the middle of it at your own eye height (6'2" tall puts your eyes about 5'9"). Look around at the bed, desk and chair in 3D, then later edit that one room's furniture in 3D. The neighbouring rooms are drawn so you see through the doorways, but you can't edit them from there.
 
@@ -48,6 +51,13 @@ So a 3D view is mostly another *renderer* of the same data, the way the SVG plan
 - **Fit checks:** `analyzeFit` runs on every move, exactly as in 2D, and pieces tint red or amber.
 - **Scope:** editing is limited to the current room. That keeps picking, snapping and collision small and predictable, and matches how people actually arrange furniture.
 - **Data:** it's the same `PlacedItem` data, so anything moved in 3D is already moved on the plan.
+
+**Built (v0.3), and how it differs from the plan:**
+- **Code:** it's `src/ui/Walk3D.tsx` plus `src/engine/scene.ts`, with three.js through React Three Fiber and no drei.
+- **Floors:** the whole floor is built at once, so doorways never load. You can edit only the room you stand in; it switches about 0.4 s after you enter a new room.
+- **Editing is click-to-hold:** aim and click to pick up, click to put down. Wall pieces follow the wall you aim at.
+- **Fallback:** drag-to-look when pointer lock is refused.
+- **Models:** built in code (`src/ui/models3d.tsx`) instead of downloaded packs.
 
 ### C. Lighting, including LED strips
 

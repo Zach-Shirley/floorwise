@@ -1,12 +1,18 @@
 # Floorwise
 
-A house-plan explorer for people who've never designed a house. Browse 31 original floor plans, from a 450 sq ft studio to a 3,200 sq ft two-story, including open great-room and live/work homes with a workshop. Drop in about 200 true-size pieces of furniture and see right away when a king bed blocks the closet door. Pieces have real heights, so a PC can go under a desk, a monitor on it and a shelf on the wall above. Along the way you learn *why* each plan is arranged the way it is.
+A house-plan explorer for people who've never designed a house. Browse 31 original floor plans, from a 450 sq ft studio to a 3,200 sq ft two-story, including open great-room and live/work homes with a workshop. Drop in about 200 true-size pieces of furniture and see right away when a king bed blocks the closet door. Pieces have real heights, so a PC can go under a desk, a monitor on it and a shelf on the wall above. Then switch to **3D walk** to stand in the room at your own eye height and rearrange it from the inside. Along the way you learn *why* each plan is arranged the way it is.
 
 **Live:** https://floorwise-seven.vercel.app (auto-deploys from `main`)
 
-**Status:** v0.2 (November 2026). v0.2 adds 12 plans in the 1,000-2,500 sq ft range (8 of them open great-room or live/work designs), a much bigger furniture catalog, and heights: stacking, under-desk pieces, wall-mounted pieces and a side view. Plans are still fixed-size: you can't drag walls yet. Desktop browser is the target; phones can browse plans but aren't polished. There's no 3D view yet. [`docs/3D-PLAN.md`](docs/3D-PLAN.md) describes how one would be built.
+**Status:** v0.3 (November 2026).
+- **v0.3:** a first-person 3D walk-through where you can edit the furniture in the room you're standing in, plus desk-level detail: vertical and wall-mounted monitors, risers, desk mats, keyboards, mice and the like, stacked in layers.
+- **v0.2:** 12 more plans, the large catalog, and furniture heights.
+
+Lighting is deliberately neutral; real lights are the next step, see [`docs/3D-PLAN.md`](docs/3D-PLAN.md). Plans are still fixed-size: you can't drag walls yet. Desktop browser is the target. The 3D view needs a mouse and keyboard; phones can browse plans but aren't polished.
 
 ![A split-bedroom ranch with starter furniture: the right panel explains why the plan is arranged this way](docs/screenshots/furnished.png)
+
+![The 3D walk-through: an L-desk with an ultrawide on a riser, a vertical monitor, a desk mat with keyboard and mouse, and a shelf above](docs/screenshots/walk-desk.jpg)
 
 ![Zones and circulation overlays on a classic ranch: purple is private, red is public, the dotted lines trace the walk from the front door](docs/screenshots/zones-flow.png)
 
@@ -18,7 +24,7 @@ A house-plan explorer for people who've never designed a house. Browse 31 origin
 - **Place furniture** from a catalog of about 200 pieces at real sizes:
   - Beds: twin through California king, loft and bunk beds, a Murphy bed.
   - Desks: from compact to executive, standing, and L-desks.
-  - Tech: monitors (including ultrawides), PC towers, laptops and speakers.
+  - Desk setups: landscape, vertical, triple and wall-mounted monitors, monitor risers, desk shelves, desk mats and mouse pads, full, tenkeyless and 60% keyboards, mice, PC towers (under or on the desk), laptops and stands, speakers, headphone stands, controllers, a stream deck, a mug, and a footrest.
   - Wall pieces: shelves, wall bookcases, posters, art, mirrors and wall TVs from 55" to 85".
   - Lighting: lamps, ceiling fans, pendants and LED strips.
   - Hobby, workshop and fitness: workbenches, pegboard, a table saw, a pool table, ping pong, an arcade cabinet, drum kits, a treadmill and a power rack.
@@ -27,12 +33,22 @@ A house-plan explorer for people who've never designed a house. Browse 31 origin
   Drag a piece from the palette, or click it and it finds a sensible spot: against a wall, on a desk for monitors, under a desk for PC towers. Move, rotate (R, or drag the handle), duplicate, delete, undo.
 - **Work in three dimensions on a flat plan.**
   - **Heights:** every piece has a height. Two pieces only collide when they overlap on the plan *and* in height.
-  - **Surface pieces:** monitors, lamps and TVs on stands rest on whatever is under them and travel with it when you move it.
+  - **Surface pieces:** monitors, lamps and TVs on stands rest on whatever is under them and travel with it when you move it. It stacks more than one level deep: a keyboard on a desk mat on a desk, or a monitor on a riser on a desk. Move the desk and the whole stack comes along.
   - **Under-desk pieces:** PC towers and drawer pedestals go under a desk and move with it.
   - **Wall pieces:** they snap to the nearest wall, turn to face the room, and have an adjustable height.
   - **Chairs:** they tuck under desks and tables.
   - **On the plan:** pieces above about 4' are drawn dashed (the standard drafting convention), and anything hidden under something else shows as a dashed outline.
   - **Side view:** select any piece to see it next to a figure of your height (6'2" by default, adjustable).
+- **Walk through it in 3D.** Press **3D walk** in the top bar. You start in the middle of the selected room (or the room in the middle of your view), at your eye height, which is your figure height minus 4.5".
+  - **Moving:** walk with WASD (Shift to hurry) and look with the mouse. Walls stop you.
+  - **One floor at a time, no loading:** the whole floor is built at once, so going through a doorway never pauses. Changing floors drops you at the stairs.
+  - **Editing:** only the room you're standing in. Aim at a piece and click to pick it up, then click to put it down.
+    - Floor pieces slide across the floor, surface pieces across what they sit on, and wall pieces along the wall you're aiming at.
+    - The held piece glows green, amber or red with the same fit checks as the plan, and anything sitting on it comes along.
+    - R / Q / E rotate and Del removes.
+  - **Other rooms** are fully drawn but locked. About half a second after you walk into a room, it becomes the editable one.
+  - **Adding:** a piece added from the palette while in 3D lands in your current room and goes straight into your hands when you click back in.
+  - **Fallback:** if the browser refuses mouse capture, it switches to drag-to-look.
 - **See what doesn't fit.**
   - Red means a hard problem: the piece runs into a wall, overlaps something at the same height, blocks a door swing, or is a wall piece with no wall behind it.
   - Amber means a softer one: the piece crowds a doorway, covers a window, doesn't leave the recommended clearance (like 36" in front of a dresser), or is a monitor left on the floor.
@@ -48,7 +64,7 @@ Keyboard: `R` / `Shift+R` rotate 90°, `Q` / `E` rotate 15°, arrows nudge 1" (S
 ```bash
 npm install
 npm run dev      # http://localhost:5340
-npm test         # 540 tests
+npm test         # 553 tests
 npm run build
 ```
 
@@ -89,7 +105,7 @@ Add one line to [`src/data/furniture/catalog.ts`](src/data/furniture/catalog.ts)
 { id: 'bed-daybed', name: 'Daybed', category: 'Beds', w: 41, d: 80, h: 32, symbol: 'bed', clearance: { front: 24 } },
 ```
 
-`symbol` picks the top-down drawing in [`src/ui/symbols.tsx`](src/ui/symbols.tsx). Reuse one, or add a new case there. `clearance` (also inches) drives the amber "tight fit" hints. `flat: true` marks rugs and mats, which other furniture sits on.
+`symbol` picks the top-down drawing in [`src/ui/symbols.tsx`](src/ui/symbols.tsx) and the 3D model in [`src/ui/models3d.tsx`](src/ui/models3d.tsx). Reuse one, or add a new case to each. `clearance` (also inches) drives the amber "tight fit" hints. `flat: true` marks rugs and mats, which other furniture sits on.
 
 Height options:
 
@@ -102,6 +118,7 @@ Height options:
 | `mount: 'ceiling'` | Hangs from the 8' ceiling | fans, pendants |
 | `tucks: true` | Can push in under anything with `clearUnder` | chairs, stools, benches |
 | `under: true` | Belongs under a desk (auto-placement puts it there; it moves with the desk) | PC tower, drawer pedestal |
+| `holds: true` | A surface piece other surface pieces can rest on | desk mat, mouse pad, monitor riser |
 | `sitsOn` | Preferred surfaces for auto-placement, by symbol | `['desk', 'desk-l']` |
 | `parts` | A non-rectangular footprint as rectangles `[x, y, w, d]` from the back-left corner | L-desks, sectionals |
 | `flip: true` | Draw the symbol mirrored | the left-hand L-desk |
@@ -111,11 +128,13 @@ Height options:
 - `src/engine/resolve.ts` turns layout data into geometry. It works out which wall segments are interior or exterior, cuts openings for doors, computes swing arcs as convex polygons, and places fixtures flush against inside wall faces.
 - `src/engine/rules.ts` builds a graph of rooms connected by doors (and stairs between floors) and runs the design checks on it.
 - `src/engine/furniture.ts` works out every piece's height (what rests on what) and then checks pieces against walls, door swings, doorway approach zones, windows, fixtures and each other. It uses separating-axis tests on rotated boxes plus a height-band overlap test. It also snaps pieces to walls, hangs wall pieces, carries what sits on a desk when the desk moves, and finds open spots.
-- `src/ui/` is React plus hand-built SVG, with no UI or canvas library. Floor plans render in feet, with screen-constant line widths.
+- `src/engine/scene.ts` turns a floor into 3D boxes: walls to an 8' ceiling, with headers over doors, window openings from 36" to 84" with glass, and a collision test for walking.
+- `src/ui/` is React plus hand-built SVG for the plan. The 3D view ([`Walk3D.tsx`](src/ui/Walk3D.tsx)) uses three.js through React Three Fiber and loads only when you open it.
+- Every 3D model is built in code from boxes, cylinders and spheres at the catalog's real size. There are no downloaded model files, so nothing has a licensing question and everything matches the fit checks exactly.
 
 ## Verification
 
-- **Automated (540 tests, Vitest):** every one of the 31 layouts passes all 13 design checks plus bed and bath counts. Geometry unit tests cover overlap, L-shaped outlines, interval math and rotated-box collisions. Resolver tests cover square-footage math, exterior wall length, open-plan edges and flush fixture placement. Negative tests confirm the checks catch overlapping rooms, a bath opening into a kitchen, a door between rooms that don't touch, an unreachable room, a fixture in a door swing, a window on an interior wall and a walk-through bedroom. Furniture tests cover standard mattress sizes, wall, overlap, door-swing and outside-the-house detection, rugs under furniture, tight-clearance warnings, wall snapping and auto-placement. Height tests cover:
+- **Automated (553 tests, Vitest):** every one of the 31 layouts passes all 13 design checks plus bed and bath counts. Geometry unit tests cover overlap, L-shaped outlines, interval math and rotated-box collisions. Resolver tests cover square-footage math, exterior wall length, open-plan edges and flush fixture placement. Negative tests confirm the checks catch overlapping rooms, a bath opening into a kitchen, a door between rooms that don't touch, an unreachable room, a fixture in a door swing, a window on an interior wall and a walk-through bedroom. Furniture tests cover standard mattress sizes, wall, overlap, door-swing and outside-the-house detection, rugs under furniture, tight-clearance warnings, wall snapping and auto-placement. Height tests cover:
   - a PC under a desk, a monitor resting on it, and a chair tucked under it
   - a shelf above a dresser that collides once it is lowered into the dresser
   - a wall piece with no wall behind it, and a poster covering a window
@@ -124,7 +143,21 @@ Height options:
   - auto-placing a monitor on a desk and a tower under it
   - the free inside corner of an L-desk
   - the catalog's height data
+  - **3D (v0.3):**
+    - one glass pane per window, with a sill and a header
+    - a header over every door
+    - wall pieces built for every floor of every layout
+    - standing allowed inside rooms but not in walls, outside, or on an open-to-below void
+    - every catalog piece has a real-size model
+    - a keyboard and mouse on a desk mat, and a monitor on a riser
+    - the whole stack moving with the desk
+    - a pushed-in chair passing under the desktop items
 - **Checked by hand in a desktop browser:**
+  - **v0.3:** I walked between rooms and watched edit permission switch.
+    - I picked up a wall bookcase and slid it along the wall into a live "Covers a window" warning, then put it down. The undo step and the saved position were correct.
+    - A piece added from the palette went straight into my hands.
+    - A full desk setup rendered correctly in 3D, and plan mode still works.
+    - The test browser refuses pointer lock, so walking was checked in the drag-to-look fallback. Normal mouse capture is standard browser behaviour, but I haven't seen it run in your browser.
   - **v0.2:** all 12 new layouts render with starter furniture, and the open-to-below upper floor draws correctly. I checked by hand that a monitor and a PC move with a dragged L-desk, a monitor auto-places onto a desk, and a poster snaps to a wall. The side view and wall-height control update the fit warning live, with no console errors.
   - **v0.1:** every layout loads and renders with no console errors or data warnings, including both floors of the two-story plans. Placing, dragging, rotating, undoing and deleting furniture work. Fit warnings fire for walls and door swings. The Zones and Flow overlays, room details, auto-furnish and furniture persistence after reload all work. Phone width was viewed briefly: plans browse fine, but the panels become drawers and it isn't tuned.
 - **Not tested:** touch gestures such as pinch-zoom (not implemented), Safari and Firefox, very large custom layouts, and real users.
@@ -139,7 +172,13 @@ Height options:
 - Heights use one flat 8' ceiling, and windows are assumed to run from 36" to 84". The double-height rooms under `open-below` are not modeled as taller.
 - An `open-below` void counts as walkable floor in the circulation graph. That's harmless for the checks, but not literally true.
 - A kitchen drawn inside a `great` room (as in Gallery Long House) isn't covered by the plumbing check, which only looks at `kitchen` rooms.
-- No 3D view, no materials or lighting, no printing. See [`docs/3D-PLAN.md`](docs/3D-PLAN.md).
+- **3D view:**
+  - Lighting is neutral, with no lamps, sunlight or shadows yet.
+  - Models are simple block shapes.
+  - You walk through furniture; only walls block you.
+  - Double-height rooms get a normal 8' ceiling.
+  - There are no stairs to climb; switch floors with the tabs.
+- No printing.
 
 ## Story
 
@@ -150,6 +189,7 @@ Zach wanted a home-planning tool he could tinker with directly: pick from lots o
 This was built almost entirely by AI. Claude Code (Anthropic's Claude Opus 5.5) wrote all the code, all 31 floor plans, the furniture catalog, the design notes and learning text, and the tests.
 - **v0.1:** four parallel Claude agents drafted 18 of the 19 plans.
 - **v0.2:** three more agents drafted the 12 new plans.
+- **v0.3:** the 3D view and its models were written by the main agent.
 - The main agent reviewed every plan visually and through the automated checks, and wrote the engine, UI and catalog itself.
 
 Zach came up with the idea and set the direction: a built-out interface first, many preset layouts across square footages, true-size furniture, data files he can edit himself, learning help, and open source.
@@ -158,6 +198,13 @@ Zach came up with the idea and set the direction: a built-out interface first, m
   - a much bigger catalog focused on bedrooms, offices and living rooms
   - a way to stack furniture, such as a PC under a desk or a shelf above a dresser
   - a plan for a 3D walk-through
+- After v0.2, he asked for the walk-through and 3D editing in one pass:
+  - one first-person character spawning mid-room
+  - seamless room transitions
+  - editing limited to the current room
+  - neutral lighting for now
+  - lots of desk detail (vertical and wall monitors, mouse pad, mouse, keyboard, PC tower) with proper layering
+- He allowed any downloadable models, preferring free ones. Building simple models in code was the AI's choice.
 - The height system design (bands, surface/wall/ceiling mounts, the side view) was left to the AI's judgment.
 - Routine technical and design choices were delegated to the AI.
 
@@ -166,8 +213,8 @@ The floor plans are original. They follow general residential conventions and we
 ## Attribution
 
 - Fonts: [Inter](https://github.com/rsms/inter) and [Unbounded](https://github.com/googlefonts/unbounded), both under the SIL Open Font License 1.1, bundled via Fontsource.
-- Icons and furniture drawings are original SVG made for this project.
-- Built with React, Vite, TypeScript and Vitest (MIT).
+- Icons, furniture drawings and 3D furniture models are original, made in code for this project.
+- Built with React, Vite, TypeScript, Vitest, three.js and React Three Fiber (all MIT).
 
 ## License
 

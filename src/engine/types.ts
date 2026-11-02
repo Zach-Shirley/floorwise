@@ -264,6 +264,10 @@ export type SymbolKey =
   | 'printer'
   | 'easel'
   | 'divider'
+  | 'pad'
+  | 'mouse'
+  | 'riser'
+  | 'mug'
   | 'generic';
 
 export interface FurnitureDef {
@@ -316,6 +320,11 @@ export interface FurnitureDef {
   tucks?: boolean;
   /** Floor pieces meant to live under a desk or table (PC tower, drawer pedestal). Helps auto-placement. */
   under?: boolean;
+  /**
+   * Surface pieces that other surface pieces can rest on: desk mats, mouse pads,
+   * monitor risers, desk hutches. A keyboard on a desk mat sits on the mat.
+   */
+  holds?: boolean;
   /** Surface pieces: preferred things to sit on, by symbol, best first. Helps auto-placement. */
   sitsOn?: SymbolKey[];
   /**

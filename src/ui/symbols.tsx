@@ -517,6 +517,34 @@ function symbolBody({ symbol, w, d, round }: SymbolProps) {
     case 'aquarium':
       detail = R(x0 + 0.08, y0 + 0.08, w - 0.16, d - 0.16, 0.02, 'sym-soft');
       break;
+    case 'pad':
+      return (
+        <g className="sym">
+          {R(x0, y0, w, d, Math.min(0.08, m * 0.15), 'sym-soft')}
+        </g>
+      );
+    case 'mouse':
+      return (
+        <g className="sym">
+          <ellipse cx={0} cy={0} rx={w / 2} ry={d / 2} {...NS} />
+          <line x1={0} y1={y0} x2={0} y2={y0 + d * 0.4} className="sym-thin" {...NS} />
+        </g>
+      );
+    case 'riser':
+      detail = (
+        <>
+          <line x1={x0 + 0.1} y1={y0} x2={x0 + 0.1} y2={-y0} className="sym-thin" {...NS} />
+          <line x1={-x0 - 0.1} y1={y0} x2={-x0 - 0.1} y2={-y0} className="sym-thin" {...NS} />
+        </>
+      );
+      break;
+    case 'mug':
+      return (
+        <g className="sym">
+          <circle cx={0} cy={0} r={w / 2} {...NS} />
+          <path d={`M${w / 2} ${-d * 0.15} q${w * 0.3} ${d * 0.15} 0 ${d * 0.3}`} fill="none" className="sym-thin" {...NS} />
+        </g>
+      );
     case 'led-strip':
       return <line x1={x0} y1={0} x2={-x0} y2={0} className="sym-led" {...NS} />;
     case 'printer':

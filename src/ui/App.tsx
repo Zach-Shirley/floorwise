@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { Suspense, lazy, useEffect, useMemo, useRef, useState } from 'react';
 import { getFurniture } from '../data/furniture';
 import { LAYOUTS, getLayout } from '../data/layouts';
 import { bathsLabel, bedsLabel } from '../engine/format';
@@ -12,6 +12,9 @@ import { LayoutLibrary } from './LayoutLibrary';
 import { LearnPanel } from './LearnPanel';
 import { PlanView, type PlanHandle, type ViewOpts } from './PlanView';
 import { isPlaced, usePlanner } from './usePlanner';
+
+// three.js is only downloaded when you first open the 3D view.
+const Walk3D = lazy(() => import('./Walk3D'));
 
 const PREFS = 'floorwise:v1:prefs';
 type Tab = 'plans' | 'furniture' | 'learn';
@@ -72,6 +75,10 @@ export function App() {
   const [drawer, setDrawer] = useState<'left' | 'right' | null>(null);
   const [toast, setToast] = useState('');
   const plan = useRef<PlanHandle>(null);
+  const [mode, setMode] = useState<'plan' | 'walk'>(() => (new URLSearchParams(location.search).get('mode') === 'walk' ? 'walk' : 'plan'));
+  const [spawn, setSpawn] = useState<string | null>(null);
+  const [walkRoom, setWalkRoom] = useState<string | null>(null);
+  const [grabUid, setGrabUid] = useState<string | null>(null);
   const fileIn = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -95,8 +102,34 @@ export function App() {
     url.searchParams.set('layout', P.layoutId);
     url.searchParams.delete('view');
     url.searchParams.delete('furnish');
+    if (mode === 'walk') url.searchParams.set('mode', 'walk');
+    else url.searchParams.delete('mode');
     history.replaceState(null, '', url);
-  }, [P.layoutId]);
+  }, [P.layoutId, mode]);
+
+  const roomOfItem = (uid: string) => {
+    const it = P.items.find((i) => i.uid === uid);
+    return it ? floor.rooms.find((r) => r.type !== 'open-below' && inRoom({ x: it.x, y: it.y }, r, 0)) : undefined;
+  };
+
+  /** Switch to the 3D walk-through, starting in the selected room (or the one in the middle of the plan view). */
+  const enterWalk = () => {
+    let room: string | undefined;
+    if (P.sel?.kind === 'room') room = P.sel.id;
+    else if (P.sel?.kind === 'item') room = roomOfItem(P.sel.uid)?.id;
+    else {
+      const c = plan.current?.center();
+      room = c && floor.rooms.find((r) => !r.outdoor && r.type !== 'open-below' && inRoom(c, r, 0))?.id;
+    }
+    setSpawn(room ?? null);
+    setMode('walk');
+  };
+  // Changing floors in 3D drops you at the stairs.
+  const walkSpawn = spawn && floor.roomById.has(spawn) ? spawn : floor.rooms.find((r) => r.type === 'stair')?.id ?? null;
+  const onWalkRoom = (id: string) => {
+    setWalkRoom(id);
+    if (P.sel?.kind === 'item' && roomOfItem(P.sel.uid)?.id !== id) P.select(null);
+  };
 
 
   useEffect(() => {
@@ -128,10 +161,18 @@ export function App() {
   const addFromPalette = (item: string) => {
     const center = plan.current?.center() ?? { x: floor.bbox[0] + floor.bbox[2] / 2, y: floor.bbox[1] + floor.bbox[3] / 2 };
     const selRoom = P.sel?.kind === 'room' ? floor.roomById.get(P.sel.id) : undefined;
-    const room = selRoom ?? floor.rooms.find((r) => !r.outdoor && inRoom(center, r, 0));
+    const room =
+      mode === 'walk' ? (walkRoom ? floor.roomById.get(walkRoom) : undefined) : selRoom ?? floor.rooms.find((r) => !r.outdoor && inRoom(center, r, 0));
     const spot = room && findSpot(floor, P.items, item, room);
-    if (spot) P.add(item, spot.x, spot.y, spot.rot);
-    else {
+    if (spot) {
+      const uid = P.add(item, spot.x, spot.y, spot.rot);
+      if (mode === 'walk') {
+        setGrabUid(uid);
+        setToast(`Added to ${room!.name}. Click the 3D view to pick it up.`);
+      }
+    } else if (mode === 'walk') {
+      setToast(room ? `No clear spot in ${room.name}. Move something first.` : 'Walk into a room first');
+    } else {
       const c = room ? room.labelAt : center;
       addAt(item, c.x, c.y);
       if (room) setToast(`No clear spot in ${room.name}: drag it where you want it`);
@@ -196,7 +237,7 @@ export function App() {
       else if (mod && e.key.toLowerCase() === 'd') {
         e.preventDefault();
         P.duplicate(uid);
-      } else if (e.key.startsWith('Arrow')) {
+      } else if (e.key.startsWith('Arrow') && mode === 'plan') {
         e.preventDefault();
         const step = e.shiftKey ? 0.5 : 1 / 12;
         const dx = e.key === 'ArrowLeft' ? -step : e.key === 'ArrowRight' ? step : 0;
@@ -261,7 +302,15 @@ export function App() {
             ))}
           </div>
         )}
-        <div className="toggles">
+        <div className="seg mode" role="tablist" aria-label="View">
+          <button role="tab" aria-selected={mode === 'plan'} className={mode === 'plan' ? 'on' : ''} onClick={() => setMode('plan')}>
+            Plan
+          </button>
+          <button role="tab" aria-selected={mode === 'walk'} className={mode === 'walk' ? 'on' : ''} onClick={() => mode !== 'walk' && enterWalk()} title="Walk through the plan in 3D">
+            3D walk
+          </button>
+        </div>
+        <div className={`toggles ${mode === 'walk' ? 'hide' : ''}`}>
           {TOGGLES.map((t) => (
             <button key={t.key} className={`toggle ${prefs.opts[t.key] ? 'on' : ''}`} onClick={() => setOpt(t.key)} title={t.title} aria-pressed={prefs.opts[t.key]}>
               {t.label}
@@ -276,7 +325,7 @@ export function App() {
           <button className="icon-btn" onClick={P.redo} disabled={!P.canRedo} title="Redo (Ctrl+Shift+Z)" aria-label="Redo">
             ↷
           </button>
-          <div className="zoom">
+          <div className={`zoom ${mode === 'walk' ? 'hide' : ''}`}>
             <button className="icon-btn" onClick={() => plan.current?.zoomBy(0.8)} aria-label="Zoom out">
               −
             </button>
@@ -328,25 +377,46 @@ export function App() {
       </aside>
 
       <main className="stage">
-        <PlanView
-          ref={plan}
-          L={L}
-          floor={floor}
-          items={floorItems}
-          fit={fit}
-          sel={P.sel}
-          opts={prefs.opts}
-          highlight={highlight}
-          onSelect={(s) => {
-            P.select(s);
-            if (s && s.kind !== 'item') setDrawer(null);
-          }}
-          onBeginEdit={P.checkpoint}
-          stacks={stacks}
-          onMoveMany={(ups) => P.moveMany(ups, false)}
-          onDropItem={addAt}
-          onScale={setScale}
-        />
+        {mode === 'walk' ? (
+          <Suspense fallback={<div className="walk-loading">Building the 3D view…</div>}>
+            <Walk3D
+              key={`${P.layoutId}/${floor.id}`}
+              floor={floor}
+              items={floorItems}
+              fit={fit}
+              stacks={stacks}
+              selUid={P.sel?.kind === 'item' ? P.sel.uid : null}
+              person={prefs.person}
+              spawnRoom={walkSpawn}
+              grabUid={grabUid}
+              onGrabbed={() => setGrabUid(null)}
+              onRoom={onWalkRoom}
+              onSelect={(uid) => P.select(uid ? { kind: 'item', uid } : null)}
+              onBeginEdit={P.checkpoint}
+              onMoveMany={(ups) => P.moveMany(ups, false)}
+            />
+          </Suspense>
+        ) : (
+          <PlanView
+            ref={plan}
+            L={L}
+            floor={floor}
+            items={floorItems}
+            fit={fit}
+            sel={P.sel}
+            opts={prefs.opts}
+            highlight={highlight}
+            onSelect={(s) => {
+              P.select(s);
+              if (s && s.kind !== 'item') setDrawer(null);
+            }}
+            onBeginEdit={P.checkpoint}
+            stacks={stacks}
+            onMoveMany={(ups) => P.moveMany(ups, false)}
+            onDropItem={addAt}
+            onScale={setScale}
+          />
+        )}
         <div className="stage-foot">
           {floorItems.length === 0 && (
             <button className="badge cta" onClick={furnishAll}>
@@ -359,7 +429,11 @@ export function App() {
               {blocked ? ` · ${blocked} don't fit` : ' · all fit'}
             </span>
           )}
-          <span className="keys">Scroll to zoom · drag to pan · click a room for details · R rotate · Del remove · F fit</span>
+          <span className="keys">
+            {mode === 'walk'
+              ? 'WASD walk · mouse look · click to pick up / put down · R rotate · Del remove · Esc cursor'
+              : 'Scroll to zoom · drag to pan · click a room for details · R rotate · Del remove · F fit'}
+          </span>
         </div>
         {L.issues.length > 0 && (
           <div className="data-warn">

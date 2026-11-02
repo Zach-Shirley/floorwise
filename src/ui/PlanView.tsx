@@ -9,14 +9,14 @@ import {
   ridersOf,
   snapToWallMount,
   snapToWalls,
-  wallRect,
   type FitWarning,
   type PlacedItem,
   type Stack,
 } from '../engine/furniture';
 import { bbox as rectsBBox, convexOverlap, type Pt } from '../engine/geometry';
-import { WALL_EXT, WALL_HALF, inRoom, segPt, type RFloor, type RLayout, type RWall } from '../engine/resolve';
+import { WALL_EXT, WALL_HALF, segPt, type RFloor, type RLayout } from '../engine/resolve';
 import { circulationTree } from '../engine/rules';
+import { wallDrawRect } from '../engine/scene';
 import type { Rect } from '../engine/types';
 import { SymbolShape } from './symbols';
 
@@ -60,25 +60,6 @@ interface Props {
 
 const NS = { vectorEffect: 'non-scaling-stroke' as const };
 const pts = (p: Pt[]) => p.map((q) => `${q.x},${q.y}`).join(' ');
-
-/** Extend wall ends so corners close cleanly. */
-function wallDrawRect(w: RWall, floor: RFloor): Rect {
-  const r = wallRect(w);
-  const { seg } = w;
-  const ext = (end: 'start' | 'end') => {
-    if (end === 'start' ? !w.capStart : !w.capEnd) return 0;
-    if (w.kind === 'int') return WALL_HALF;
-    const t = end === 'start' ? -1 : 1;
-    const at = end === 'start' ? seg.a0 : seg.a1;
-    const inward = -(w.out ?? 1);
-    const probe = segPt(seg, at + t * 0.05, inward * 0.05);
-    const concave = floor.rooms.some((rm) => !rm.outdoor && inRoom(probe, rm, 0));
-    return concave ? WALL_HALF : WALL_EXT - WALL_HALF;
-  };
-  const e0 = ext('start'),
-    e1 = ext('end');
-  return seg.o === 'h' ? [r[0] - e0, r[1], r[2] + e0 + e1, r[3]] : [r[0], r[1] - e0, r[2], r[3] + e0 + e1];
-}
 
 export const PlanView = forwardRef<PlanHandle, Props>(function PlanView(p, ref) {
   const { L, floor, items, fit, stacks, sel, opts, highlight } = p;
