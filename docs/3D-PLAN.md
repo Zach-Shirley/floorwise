@@ -2,6 +2,11 @@
 
 Status:
 - **Phases A and B shipped together in v0.3 (November 2026):** walking and editing the room you're standing in.
+- **v0.4 polish:**
+  - realistic models, textures, 9' ceilings, surroundings
+  - clickable doors and stairs, wall-height dragging
+  - per-room paint and floors, item colors
+  - fixes for the camera jumps and placement drift
 - **Phase C (lighting)** is next.
 - The notes below are kept as the original plan, with what changed marked "Built".
 

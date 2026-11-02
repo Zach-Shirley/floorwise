@@ -3,6 +3,7 @@ import { getFurniture } from '../data/furniture';
 import { LAYOUTS, getLayout } from '../data/layouts';
 import { bathsLabel, bedsLabel } from '../engine/format';
 import { analyzeFit, carryRiders, findSpot, itemBox, resolveStacks, ridersOf, snapToWallMount, snapToWalls, type PlacedItem } from '../engine/furniture';
+import { loadFinishes, saveFinishes, type Finishes, type RoomFinish } from '../engine/finishes';
 import { inRoom } from '../engine/resolve';
 import { resolveLayout } from '../engine/resolve';
 import { autoFurnish } from '../engine/autofurnish';
@@ -79,6 +80,17 @@ export function App() {
   const [spawn, setSpawn] = useState<string | null>(null);
   const [walkRoom, setWalkRoom] = useState<string | null>(null);
   const [grabUid, setGrabUid] = useState<string | null>(null);
+  const [spawnAt, setSpawnAt] = useState<{ x: number; y: number; yaw: number } | null>(null);
+  // wall paint and floor finishes, per layout
+  const [fin, setFin] = useState(() => ({ layout: P.layoutId, map: loadFinishes(P.layoutId) }));
+  if (fin.layout !== P.layoutId) setFin({ layout: P.layoutId, map: loadFinishes(P.layoutId) });
+  const finishes: Finishes = fin.layout === P.layoutId ? fin.map : {};
+  const setRoomFinish = (roomId: string, patch: RoomFinish) => {
+    const key = `${floor.id}/${roomId}`;
+    const map = { ...finishes, [key]: { ...finishes[key], ...patch } };
+    setFin({ layout: P.layoutId, map });
+    saveFinishes(P.layoutId, map);
+  };
   const fileIn = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -122,13 +134,15 @@ export function App() {
       room = c && floor.rooms.find((r) => !r.outdoor && r.type !== 'open-below' && inRoom(c, r, 0))?.id;
     }
     setSpawn(room ?? null);
+    setSpawnAt(null);
     setMode('walk');
   };
   // Changing floors in 3D drops you at the stairs.
   const walkSpawn = spawn && floor.roomById.has(spawn) ? spawn : floor.rooms.find((r) => r.type === 'stair')?.id ?? null;
   const onWalkRoom = (id: string) => {
     setWalkRoom(id);
-    if (P.sel?.kind === 'item' && roomOfItem(P.sel.uid)?.id !== id) P.select(null);
+    // show the room you walked into (its paint and floor options), unless you're working on a piece there
+    if (!(P.sel?.kind === 'item' && roomOfItem(P.sel.uid)?.id === id)) P.select({ kind: 'room', id });
   };
 
 
@@ -250,7 +264,7 @@ export function App() {
   });
 
   const exportJson = () => {
-    const data = { app: 'floorwise', version: 1, layout: P.layoutId, items: P.items };
+    const data = { app: 'floorwise', version: 1, layout: P.layoutId, items: P.items, finishes };
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
@@ -263,7 +277,12 @@ export function App() {
     try {
       const data = JSON.parse(await file.text());
       const items: PlacedItem[] = (data.items ?? []).filter(isPlaced);
-      if (data.layout && data.layout !== P.layoutId && getLayout(data.layout)) pickLayout(data.layout);
+      const target = data.layout && getLayout(data.layout) ? data.layout : P.layoutId;
+      if (target !== P.layoutId) pickLayout(target);
+      if (data.finishes && typeof data.finishes === 'object') {
+        saveFinishes(target, data.finishes);
+        setFin({ layout: target, map: data.finishes });
+      }
       setTimeout(() => P.replaceAll(items), 0);
       setToast(`Imported ${items.length} pieces`);
     } catch {
@@ -296,7 +315,10 @@ export function App() {
         {L.floors.length > 1 && (
           <div className="seg" role="tablist" aria-label="Floor">
             {L.floors.map((f) => (
-              <button key={f.id} role="tab" aria-selected={f.id === floor.id} className={f.id === floor.id ? 'on' : ''} onClick={() => P.setFloor(f.id)}>
+              <button key={f.id} role="tab" aria-selected={f.id === floor.id} className={f.id === floor.id ? 'on' : ''} onClick={() => {
+                setSpawnAt(null);
+                P.setFloor(f.id);
+              }}>
                 {f.name}
               </button>
             ))}
@@ -342,6 +364,7 @@ export function App() {
             </summary>
             <div className="menu-pop">
               <button onClick={furnishAll}>Auto-furnish (rough start)</button>
+              <button onClick={() => window.open('?gallery=1', '_blank')}>Browse 3D models</button>
               <button onClick={exportJson}>Export furniture (JSON)</button>
               <button onClick={() => fileIn.current?.click()}>Import furniture…</button>
               <button
@@ -380,7 +403,7 @@ export function App() {
         {mode === 'walk' ? (
           <Suspense fallback={<div className="walk-loading">Building the 3D view…</div>}>
             <Walk3D
-              key={`${P.layoutId}/${floor.id}`}
+              key={P.layoutId}
               floor={floor}
               items={floorItems}
               fit={fit}
@@ -388,6 +411,15 @@ export function App() {
               selUid={P.sel?.kind === 'item' ? P.sel.uid : null}
               person={prefs.person}
               spawnRoom={walkSpawn}
+              spawnAt={spawnAt}
+              below={L.floors[L.floors.indexOf(floor) - 1]}
+              floors={L.floors.map((f) => ({ id: f.id, name: f.name, rooms: f.rooms.map((r) => ({ id: r.id, type: r.type, bbox: r.bbox })) }))}
+              doorKey={`floorwise:v1:doors:${P.layoutId}:${floor.id}`}
+              finishes={finishes}
+              onFloor={(id, at) => {
+                setSpawnAt(at);
+                P.setFloor(id);
+              }}
               grabUid={grabUid}
               onGrabbed={() => setGrabUid(null)}
               onRoom={onWalkRoom}
@@ -458,6 +490,9 @@ export function App() {
             person={prefs.person}
             onPerson={(person) => setPrefs((p) => ({ ...p, person }))}
             onElev={(uid, elev) => P.edit(uid, { elev })}
+            onColor={(uid, color) => P.edit(uid, { color })}
+            finishes={finishes}
+            onFinish={setRoomFinish}
             onSelect={P.select}
             onHighlight={setHighlight}
             onRotate={rotateBy}

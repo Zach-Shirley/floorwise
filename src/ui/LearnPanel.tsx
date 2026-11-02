@@ -121,7 +121,7 @@ const TOPICS: { id: string; title: string; body: React.ReactNode }[] = [
           <li><b>Art and posters</b>: center about 57-60" off the floor, the height galleries use.</li>
           <li><b>Shelves over a dresser or desk</b>: 18-24" above the top so things fit underneath.</li>
           <li><b>Wall TVs</b>: center near seated eye level, around 42". Higher than that strains your neck.</li>
-          <li><b>Ceiling fans</b>: blades at least 7' up. Most ceilings are 8'.</li>
+          <li><b>Ceiling fans</b>: blades at least 7' up. Older homes usually have 8' ceilings; newer ones are often 9' (Floorwise uses 9').</li>
         </ul>
         <p>
           On the plan, pieces above about 4' (wall shelves, wall TVs, fans) are drawn dashed. That is a real drafting convention: the plan is a

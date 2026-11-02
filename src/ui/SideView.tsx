@@ -83,7 +83,7 @@ export function SideView({ it, floor, items, stacks, person }: Props) {
       <svg viewBox={`0 0 ${W} ${H}`} width="100%" role="img" aria-label={`Side view of the ${def.name.toLowerCase()} and what is stacked with it`}>
         <line x1={0} x2={W} y1={Y(0)} y2={Y(0)} className="sv-floor" />
         <line x1={0} x2={W} y1={Y(CEILING)} y2={Y(CEILING)} className="sv-ceiling" />
-        <text x={4} y={Y(CEILING) - 3} className="sv-note">8' ceiling</text>
+        <text x={4} y={Y(CEILING) - 3} className="sv-note">{CEILING / 12}' ceiling</text>
         <line x1={0} x2={W} y1={Y(eye)} y2={Y(eye)} className="sv-eye" />
         <text x={4} y={Y(eye) - 3} className="sv-note">your eyes {ftIn(eye / 12)}</text>
         {bars

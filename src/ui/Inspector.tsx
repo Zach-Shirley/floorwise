@@ -5,6 +5,7 @@ import { CEILING, type FitWarning, type PlacedItem, type Stack } from '../engine
 import { inRoom, type RFloor, type RLayout, type RRoom } from '../engine/resolve';
 import { kitchenTriangle, runChecks } from '../engine/rules';
 import type { RoomType, Zone } from '../engine/types';
+import { FLOORS, ITEM_COLORS, PAINTS, type Finishes, type RoomFinish } from '../engine/finishes';
 import { styleLabel } from './LayoutLibrary';
 import type { Selection } from './PlanView';
 import { SideView } from './SideView';
@@ -59,6 +60,9 @@ interface Props {
   person: number;
   onPerson: (inches: number) => void;
   onElev: (uid: string, inches: number) => void;
+  onColor: (uid: string, color: string | undefined) => void;
+  finishes: Finishes;
+  onFinish: (roomId: string, patch: RoomFinish) => void;
   onSelect: (s: Selection) => void;
   onHighlight: (rooms: string[]) => void;
   onRotate: (uid: string, delta: number) => void;
@@ -194,7 +198,8 @@ function LayoutPanel({ L, floor, onSelect, onHighlight }: Props) {
   );
 }
 
-function RoomPanel({ L, floor, room, items, onSelect }: Props & { room: RRoom }) {
+function RoomPanel({ L, floor, room, items, onSelect, finishes, onFinish }: Props & { room: RRoom }) {
+  const fin = finishes[`${floor.id}/${room.id}`] ?? {};
   const links = floor.doors
     .filter((d) => d.a === room.id || d.b === room.id)
     .map((d) => ({ d, other: d.a === room.id ? d.b : d.a }));
@@ -227,6 +232,44 @@ function RoomPanel({ L, floor, room, items, onSelect }: Props & { room: RRoom })
         </div>
       </div>
       {room.note && <p className="tip">{room.note}</p>}
+      {!room.outdoor && (
+        <>
+          <h3>Finishes (3D view)</h3>
+          <div className="finish-row">
+            <span className="muted small">Walls</span>
+            <div className="swatches">
+              {PAINTS.map((pt) => (
+                <button
+                  key={pt.hex}
+                  className={`swatch ${fin.paint === pt.hex ? 'on' : ''}`}
+                  style={{ background: pt.hex }}
+                  title={pt.name}
+                  aria-label={`Paint ${pt.name}`}
+                  onClick={() => onFinish(room.id, { paint: pt.hex })}
+                />
+              ))}
+              <label className="swatch custom" title="Pick any color">
+                <input type="color" value={fin.paint ?? '#ece8e1'} onChange={(e) => onFinish(room.id, { paint: e.target.value })} />
+              </label>
+            </div>
+          </div>
+          <div className="finish-row">
+            <span className="muted small">Floor</span>
+            <div className="chips">
+              {FLOORS.map((f) => (
+                <button key={f.id} className={`chip ${fin.floor === f.id ? 'on' : ''}`} onClick={() => onFinish(room.id, { floor: f.id })}>
+                  {f.name}
+                </button>
+              ))}
+            </div>
+          </div>
+          {(fin.paint || fin.floor) && (
+            <button className="link small" onClick={() => onFinish(room.id, { paint: undefined, floor: undefined })}>
+              Reset to default finishes
+            </button>
+          )}
+        </>
+      )}
       <h3>Connects to</h3>
       <ul className="links">
         {links.map(({ d, other }) => (
@@ -264,7 +307,7 @@ function RoomPanel({ L, floor, room, items, onSelect }: Props & { room: RRoom })
   );
 }
 
-function ItemPanel({ it, fit, stacks, items, person, onPerson, onElev, onRotate, onRemove, onDuplicate, onSelect, floor }: Props & { it: PlacedItem }) {
+function ItemPanel({ it, fit, stacks, items, person, onPerson, onElev, onColor, onRotate, onRemove, onDuplicate, onSelect, floor }: Props & { it: PlacedItem }) {
   const def = getFurniture(it.item)!;
   const warns = fit.get(it.uid) ?? [];
   const room = floor.rooms.find((r) => inRoom({ x: it.x, y: it.y }, r, 0));
@@ -350,6 +393,29 @@ function ItemPanel({ it, fit, stacks, items, person, onPerson, onElev, onRotate,
         <button onClick={() => onDuplicate(it.uid)} title="Duplicate (Ctrl+D)">Duplicate</button>
         <button className="danger" onClick={() => onRemove(it.uid)} title="Delete (Del)">Remove</button>
       </div>
+      <div className="finish-row">
+        <span className="muted small">Color (3D)</span>
+        <div className="swatches">
+          {ITEM_COLORS.map((c) => (
+            <button
+              key={c.hex}
+              className={`swatch ${it.color === c.hex ? 'on' : ''}`}
+              style={{ background: c.hex }}
+              title={c.name}
+              aria-label={`Color ${c.name}`}
+              onClick={() => onColor(it.uid, c.hex)}
+            />
+          ))}
+          <label className="swatch custom" title="Pick any color">
+            <input type="color" value={it.color ?? '#7c838d'} onChange={(e) => onColor(it.uid, e.target.value)} />
+          </label>
+          {it.color && (
+            <button className="link small" onClick={() => onColor(it.uid, undefined)}>
+              Default
+            </button>
+          )}
+        </div>
+      </div>
       {st && <SideView it={it} floor={floor} items={items} stacks={stacks} person={person} />}
       <div className="person-row">
         <span className="muted small">Figure height</span>
@@ -358,6 +424,9 @@ function ItemPanel({ it, fit, stacks, items, person, onPerson, onElev, onRotate,
         <button onClick={() => onPerson(person + 1)} title="Taller">+</button>
       </div>
       {def.tip && <p className="tip">{def.tip}</p>}
+      <a className="model-link" href={`?gallery=1&focus=${def.id}`} target="_blank" rel="noreferrer">
+        View the 3D model ↗
+      </a>
       {mount === 'surface' && <p className="muted small">Surface pieces rest on whatever is under their center, and travel with it when you move it.</p>}
       {mount === 'wall' && <p className="muted small">Wall pieces snap to the nearest wall and turn to face the room. Set the height above.</p>}
       {def.clearance && <p className="muted small">The faint zone shows recommended clear space. Hold Alt while dragging to turn off wall snapping.</p>}

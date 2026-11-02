@@ -191,7 +191,7 @@ export const FURNITURE: FurnitureDef[] = [
   { id: 'pc-mid', name: 'PC tower (mid)', category: 'Tech', w: 9, d: 18, h: 18, under: true, symbol: 'pc-tower', tip: 'Under the desk on the side away from where your legs go. Leave a few inches behind it for airflow and cables.' },
   { id: 'pc-full', name: 'PC tower (full)', category: 'Tech', w: 9, d: 21, h: 22, under: true, symbol: 'pc-tower' },
   { id: 'pc-sff', name: 'PC (small form factor)', category: 'Tech', w: 7, d: 14, h: 14, mount: 'surface', sitsOn: ['desk', 'desk-l'], symbol: 'pc-tower' },
-  { id: 'laptop', name: 'Laptop', category: 'Tech', w: 14, d: 10, h: 1, mount: 'surface', sitsOn: ['desk', 'desk-l', 'table-rect'], symbol: 'laptop' },
+  { id: 'laptop', name: 'Laptop', category: 'Tech', w: 14, d: 10, h: 9, mount: 'surface', sitsOn: ['desk', 'desk-l', 'table-rect'], symbol: 'laptop' },
   { id: 'keyboard', name: 'Keyboard + mouse', category: 'Tech', w: 26, d: 8, h: 2, mount: 'surface', sitsOn: ['desk', 'desk-l'], symbol: 'keyboard' },
   { id: 'speaker-desk', name: 'Desk speaker', category: 'Tech', w: 6, d: 8, h: 10, mount: 'surface', sitsOn: ['desk', 'desk-l', 'tv-console'], symbol: 'speaker' },
   { id: 'speaker-floor', name: 'Floor speaker', category: 'Tech', w: 10, d: 12, h: 40, symbol: 'speaker' },

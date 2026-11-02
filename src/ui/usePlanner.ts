@@ -55,6 +55,7 @@ type Action =
   | { t: 'checkpoint' }
   | { t: 'set'; items: PlacedItem[]; history?: boolean }
   | { t: 'patch'; uid: string; patch: Partial<PlacedItem> }
+  | { t: 'move'; ups: Partial<PlacedItem>[]; history: boolean }
   | { t: 'undo' }
   | { t: 'redo' };
 
@@ -72,6 +73,12 @@ function reducer(s: State, a: Action): State {
       return a.history === false
         ? { ...s, items: a.items }
         : { ...s, items: a.items, past: [...s.past.slice(-99), s.items], future: [] };
+    case 'move': {
+      // applied to the current state, so a live drag and a key press can't overwrite each other
+      const by = new Map(a.ups.map((u) => [u.uid, u]));
+      const items = s.items.map((i) => (by.has(i.uid) ? { ...i, ...by.get(i.uid)! } : i));
+      return a.history ? { ...s, items, past: [...s.past.slice(-99), s.items], future: [] } : { ...s, items };
+    }
     case 'patch':
       return { ...s, items: s.items.map((i) => (i.uid === a.uid ? { ...i, ...a.patch } : i)) };
     case 'undo': {
@@ -122,9 +129,8 @@ export function usePlanner(initialLayout: string, initialFloor: string) {
     checkpoint: () => dispatch({ t: 'checkpoint' }),
     patch: (uid: string, patch: Partial<PlacedItem>) => dispatch({ t: 'patch', uid, patch }),
     /** Move several pieces at once. `history: false` for live dragging (call checkpoint() first). */
-    moveMany: (ups: { uid: string; x: number; y: number; rot: number }[], history = true) => {
-      const by = new Map(ups.map((u) => [u.uid, u]));
-      dispatch({ t: 'set', items: s.items.map((i) => (by.has(i.uid) ? { ...i, ...by.get(i.uid)! } : i)), history });
+    moveMany: (ups: { uid: string; x: number; y: number; rot: number; elev?: number }[], history = true) => {
+      dispatch({ t: 'move', ups, history });
     },
     /** A one-shot edit that gets its own undo step. */
     edit: (uid: string, patch: Partial<PlacedItem>) =>

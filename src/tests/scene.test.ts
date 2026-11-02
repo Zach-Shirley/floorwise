@@ -4,7 +4,7 @@ import loft from '../data/layouts/artists-loft-house';
 import { FURNITURE } from '../data/furniture';
 import { analyzeFit, resolveStacks, ridersOf, type PlacedItem } from '../engine/furniture';
 import { resolveLayout } from '../engine/resolve';
-import { CEILING_FT, WINDOW_HEAD_FT, WINDOW_SILL_FT, canStand, wallBoxes } from '../engine/scene';
+import { CEILING_FT, WINDOW_HEAD_FT, WINDOW_SILL_FT, canStand, paintPanels, wallBoxes } from '../engine/scene';
 import { modelParts } from '../ui/models3d';
 import { LAYOUTS } from '../data/layouts';
 
@@ -96,5 +96,15 @@ describe('desk layers', () => {
   it('hangs a monitor on the wall over the desk without touching it', () => {
     const items = [desk, place('monitor-wall-27', 9, FACE + 1.5 / 12, 0, 'mon')];
     expect(analyzeFit(floor, items).get('mon')).toBeUndefined();
+  });
+});
+
+describe('paint panels', () => {
+  it('splits a wall face where the room on that side changes', () => {
+    const panels = paintPanels(floor, wallBoxes(floor));
+    // the studio's east wall runs past the living room and the closet: both get their own panel
+    const east = panels.filter((p) => p.rect[0] > 17.5 && p.y0 === 0 && p.y1 > 8);
+    expect(east.some((p) => p.room === 'living' && p.rect[1] + p.rect[3] > 13.5)).toBe(true);
+    expect(east.some((p) => p.room === 'closet')).toBe(true);
   });
 });

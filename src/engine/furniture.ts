@@ -24,6 +24,8 @@ export interface PlacedItem {
   rot: number;
   /** Wall pieces only: bottom edge height in inches (overrides the catalog default). */
   elev?: number;
+  /** Chosen color (3D view): replaces the piece's main fabric or wood color. */
+  color?: string;
 }
 
 export interface FitWarning {
@@ -39,8 +41,8 @@ export interface ItemBox {
   rot: number;
 }
 
-/** Ceiling height in inches (8'). */
-export const CEILING = 96;
+/** Ceiling height in inches (9': roomier than the old 8' standard, common in newer homes). */
+export const CEILING = 108;
 /** Doors are 80" tall: anything lower than that inside a swing gets hit. */
 const DOOR_H = 80;
 /** Typical window: sill at 36", head at 84". */

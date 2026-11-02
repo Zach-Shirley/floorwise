@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import studio from '../data/layouts/studio-loft';
 import { FURNITURE } from '../data/furniture';
-import { analyzeFit, carryRiders, findSpot, resolveStacks, ridersOf, snapToWallMount, snapToWalls, type PlacedItem } from '../engine/furniture';
+import { CEILING, analyzeFit, carryRiders, findSpot, resolveStacks, ridersOf, snapToWallMount, snapToWalls, type PlacedItem } from '../engine/furniture';
 import { resolveLayout } from '../engine/resolve';
 
 const floor = resolveLayout(studio).floors[0];
@@ -20,7 +20,7 @@ describe('furniture catalog', () => {
     const symbols = new Set(FURNITURE.map((f) => f.symbol));
     for (const f of FURNITURE) {
       expect(f.clearUnder ?? 0, f.id).toBeLessThan(f.h);
-      if (f.mount === 'wall') expect((f.elev ?? 48) + f.h, f.id).toBeLessThanOrEqual(96);
+      if (f.mount === 'wall') expect((f.elev ?? 48) + f.h, f.id).toBeLessThanOrEqual(CEILING);
       for (const s of f.sitsOn ?? []) expect(symbols.has(s), `${f.id} sits on ${s}`).toBe(true);
       for (const [x, y, w, d] of f.parts ?? []) {
         expect(x >= 0 && y >= 0 && x + w <= f.w && y + d <= f.d, f.id).toBe(true);
