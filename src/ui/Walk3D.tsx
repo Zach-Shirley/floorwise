@@ -491,6 +491,9 @@ function Scene(p: SceneProps) {
   const ray = useMemo(() => new THREE.Raycaster(), []);
   const center = useMemo(() => new THREE.Vector2(0, 0), []);
   const aimRay = () => {
+    // always aim along the current look, even if a click lands before the next frame is drawn
+    camera.rotation.set(look.current.pitch, look.current.yaw, 0, 'YXZ');
+    camera.updateMatrixWorld();
     ray.setFromCamera(center, camera);
     return ray.ray;
   };

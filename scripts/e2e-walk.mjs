@@ -50,6 +50,9 @@ async function open(layout, items, extra = '') {
   await page.waitForSelector('.walk-go', { timeout: 20000 });
   await page.click('.walk-go');
   await page.waitForFunction(() => !!document.querySelector('.walk-free-hint') || !!document.pointerLockElement, { timeout: 5000 });
+  // park the mouse at the center: in pointer lock, moving it would turn the view mid-test
+  const b = await (await page.$('.walk canvas')).boundingBox();
+  await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2);
   await sleep(600);
 }
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
